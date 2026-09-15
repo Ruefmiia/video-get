@@ -63,3 +63,15 @@ def test_rejects_format_expression(client: TestClient, auth_headers: dict[str, s
         },
     )
     assert response.status_code == 422
+
+
+def test_rejects_multiple_asset_ids(client: TestClient, auth_headers: dict[str, str]) -> None:
+    response = client.post(
+        "/api/v1/downloads",
+        headers=auth_headers,
+        json={
+            "url": "https://x.com/user/status/123",
+            "asset_ids": ["asset-1", "asset-2"],
+        },
+    )
+    assert response.status_code == 422

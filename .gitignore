@@ -1,6 +1,13 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.coverage
+coverage.xml
+apps/browser-extension/node_modules/
+apps/browser-extension/dist/
+apps/desktop-companion/build/
+apps/desktop-companion/dist/
+apps/desktop-companion/installer/Output/
 .ruff_cache/
 .mypy_cache/
 .venv/

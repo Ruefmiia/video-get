@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from sqlalchemy import DateTime, Float, Integer, String, create_engine, event, select
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from video_get.domain.enums import JobState, PlatformId
 from video_get.domain.models import DownloadJob, JobProgress
+from video_get.jobs.state_machine import validate_transition
 
 
 class Base(DeclarativeBase):
@@ -42,12 +44,16 @@ class DownloadJobEntity(Base):
 
 class JobRepository:
     def __init__(self, database_path: Path) -> None:
+        from video_get.persistence.migrations import upgrade_database
+
+        database_path.parent.mkdir(parents=True, exist_ok=True)
+        upgrade_database(database_path)
         self.engine = create_engine(
             f"sqlite:///{database_path.as_posix()}", connect_args={"check_same_thread": False}
         )
         event.listen(self.engine, "connect", self._configure_sqlite)
         self._sessions = sessionmaker(self.engine, expire_on_commit=False)
-        Base.metadata.create_all(self.engine)
+        self._lock = threading.RLock()
         self.fail_interrupted_jobs()
 
     @staticmethod
@@ -75,12 +81,22 @@ class JobRepository:
             return [self._to_model(row) for row in rows]
 
     def update(self, job_id: str, **values: object) -> DownloadJob:
-        with self._sessions.begin() as session:
-            entity = session.get(DownloadJobEntity, job_id)
-            if entity is None:
-                raise KeyError(job_id)
-            for key, value in values.items():
-                setattr(entity, key, value.value if hasattr(value, "value") else value)
+        if "state" in values:
+            raise ValueError("Use transition() to change a download job state")
+        with self._lock, self._sessions.begin() as session:
+            entity = self._get_entity(session, job_id)
+            self._apply_values(entity, values)
+        model = self.get(job_id)
+        if model is None:
+            raise KeyError(job_id)
+        return model
+
+    def transition(self, job_id: str, target: JobState, **values: object) -> DownloadJob:
+        with self._lock, self._sessions.begin() as session:
+            entity = self._get_entity(session, job_id)
+            validate_transition(JobState(entity.state), target)
+            entity.state = target.value
+            self._apply_values(entity, values)
         model = self.get(job_id)
         if model is None:
             raise KeyError(job_id)
@@ -102,6 +118,36 @@ class JobRepository:
                 row.error_code = "SERVICE_INTERRUPTED"
                 row.error_message = "The local service stopped before the task completed."
                 row.finished_at = datetime.now(UTC)
+
+    @staticmethod
+    def _get_entity(session: Session, job_id: str) -> DownloadJobEntity:
+        entity = session.get(DownloadJobEntity, job_id)
+        if entity is None:
+            raise KeyError(job_id)
+        return entity
+
+    @staticmethod
+    def _apply_values(entity: DownloadJobEntity, values: dict[str, object]) -> None:
+        allowed = {
+            "selected_format_id",
+            "title",
+            "output_path",
+            "downloaded_bytes",
+            "total_bytes",
+            "estimated_total_bytes",
+            "speed_bytes_per_second",
+            "eta_seconds",
+            "progress",
+            "error_code",
+            "error_message",
+            "started_at",
+            "finished_at",
+        }
+        unknown = values.keys() - allowed
+        if unknown:
+            raise ValueError(f"Unsupported job fields: {', '.join(sorted(unknown))}")
+        for key, value in values.items():
+            setattr(entity, key, value.value if hasattr(value, "value") else value)
 
     @staticmethod
     def _to_entity(job: DownloadJob) -> DownloadJobEntity:

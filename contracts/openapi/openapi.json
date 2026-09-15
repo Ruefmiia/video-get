@@ -700,6 +700,7 @@
               "type": "string"
             },
             "type": "array",
+            "maxItems": 1,
             "title": "Asset Ids"
           },
           "format_id": {

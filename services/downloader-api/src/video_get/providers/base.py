@@ -32,6 +32,7 @@ class Provider(Protocol):
     def download(
         self,
         match: MatchResult,
+        asset_ids: list[str],
         format_id: str | None,
         output_dir: Path,
         progress: ProgressCallback,

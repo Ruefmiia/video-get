@@ -21,7 +21,16 @@ _HOSTS: dict[str, PlatformId] = {
     "www.threads.net": PlatformId.THREADS,
 }
 
-_TRACKING_KEYS = {"igsh", "s", "t", "utm_campaign", "utm_content", "utm_medium", "utm_source"}
+_TRACKING_KEYS = {
+    "igsh",
+    "s",
+    "stkn",
+    "t",
+    "utm_campaign",
+    "utm_content",
+    "utm_medium",
+    "utm_source",
+}
 
 
 class UrlRouter:
@@ -48,7 +57,10 @@ class UrlRouter:
             PlatformId.INSTAGRAM: "www.instagram.com",
             PlatformId.THREADS: "www.threads.com",
         }[platform]
-        canonical = urlunsplit(("https", canonical_host, parsed.path.rstrip("/"), query, ""))
+        canonical_path = parsed.path.rstrip("/")
+        if platform is PlatformId.INSTAGRAM and canonical_path.startswith("/reels/"):
+            canonical_path = "/reel/" + canonical_path.removeprefix("/reels/")
+        canonical = urlunsplit(("https", canonical_host, canonical_path, query, ""))
         return MatchResult(platform=platform, canonical_url=canonical)
 
     @staticmethod
@@ -71,4 +83,4 @@ class UrlRouter:
             return (len(parts) >= 3 and parts[0].startswith("@") and parts[1] == "post") or (
                 len(parts) >= 2 and parts[0] == "share"
             )
-        return False
+        raise AssertionError(f"Unhandled platform: {platform}")  # pragma: no cover

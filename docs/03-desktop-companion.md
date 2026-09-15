@@ -91,3 +91,14 @@ yt-dlp 更新应可独立于 UI 更新，但必须经过冒烟测试和回滚机
 - 端口冲突、FFmpeg 缺失、数据库损坏均有可操作的诊断。
 - 卸载后无残留后台进程，用户下载文件未被误删。
 - 安装包、更新包和第三方许可证清单可重复生成。
+
+## 当前实现（0.1.0 开发版）
+
+- `apps/desktop-companion` 已实现 Windows 单实例、托盘菜单、状态窗和本地服务启停。
+- 下载服务作为受管理的隐藏子进程运行，始终绑定 `127.0.0.1`，默认使用端口 `17382`。
+- 状态窗提供打开下载目录、复制访问令牌与脱敏诊断信息；关闭窗口后继续驻留托盘。
+- PyInstaller spec 和可重复构建脚本已经加入；状态窗支持开机启动开关。
+- Native Messaging 主机使用 `com.videoget.companion` 协议向固定 ID 的扩展返回本机地址、API 版本和令牌，Chrome/Edge 注册项由安装器写入当前用户注册表。
+- Inno Setup 安装器源码已加入并已在 Inno Setup 6.7.3 上通过编译；默认保留用户下载和应用数据。
+- Windows 安装包内置 gyan.dev FFmpeg 8.0.1 essentials build（`ffmpeg.exe` 与 `ffprobe.exe`），无需用户另行安装；GPLv3 许可证与原始 README 会一并安装。
+- 0.1.0 安装包已通过真实安装/卸载回归：必需文件完整，Chrome/Edge Native Messaging 注册与卸载清理正常，在移除外部 FFmpeg PATH 后服务仍能识别内置 FFmpeg 8.0.1。

@@ -76,7 +76,7 @@ class DownloadOutput(StrictModel):
 
 class DownloadRequest(StrictModel):
     url: HttpUrl
-    asset_ids: list[str] = Field(default_factory=list)
+    asset_ids: list[str] = Field(default_factory=list, max_length=1)
     format_id: str | None = None
     output: DownloadOutput = Field(default_factory=DownloadOutput)
 

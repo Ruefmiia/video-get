@@ -14,6 +14,7 @@ from video_get.domain.models import (
     PlatformCapability,
 )
 from video_get.jobs.manager import JobManager
+from video_get.media.ffmpeg import FFmpegDiagnostics
 from video_get.persistence.database import JobRepository
 from video_get.providers.registry import ProviderRegistry
 
@@ -30,11 +31,14 @@ def health() -> dict[str, str]:
 def version(request: Request) -> dict[str, object]:
     import yt_dlp.version
 
+    diagnostics = cast(FFmpegDiagnostics, request.app.state.ffmpeg_diagnostics)
     return {
         "service_version": __version__,
         "api_version": "1",
         "yt_dlp_version": yt_dlp.version.__version__,
-        "ffmpeg_available": request.app.state.ffmpeg_available,
+        "ffmpeg_available": diagnostics.available,
+        "ffmpeg_version": diagnostics.version,
+        "ffmpeg_error": diagnostics.error,
     }
 
 

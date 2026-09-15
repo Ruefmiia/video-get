@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
+from sqlalchemy import text
 from video_get.domain.enums import JobState, PlatformId
 from video_get.domain.models import DownloadJob
 from video_get.persistence.database import JobRepository
@@ -28,3 +29,6 @@ def test_repository_persists_and_recovers_interrupted_job(tmp_path: Path) -> Non
     assert job is not None
     assert job.state is JobState.FAILED
     assert job.error_code == "SERVICE_INTERRUPTED"
+    with reopened.engine.connect() as connection:
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+    assert revision == "0001_initial"

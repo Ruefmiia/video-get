@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Video Get",
+  "description": "将当前页面的视频链接交给本地 Video Get 服务处理。",
+  "version": "0.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuxOONKXTtdx6Pb89UtSlbpoRPLoKSGufXL5ZJZF8qdo2aIt+7TFPGFsm3FeYeBQMUbNteWfCqbYbiVo3/VlEzyrR2tQTBVWTILp7wbxOavZN6RShNlUwLrD9SKTYbRX+s+uZLzsYFTX5j7DrJOJZWgH1oFaIf3yR0OreNTmbaRev3nHi8TbPuhjV3NLdOeM9NJ3v2f5J9QyV2GzQ9z+rkOxAYi+cFcZd0MzEsrb6+33RVACjWtG9hT8ItCwRowDL5ENoNFQ3BqAyxnREFb5hVNVfGX8pwn2TeRnBIKXXbn+ht0wPhkufgshYwCnjIGAAQZDj6AKWrx69Tz1LcIyxVQIDAQAB",
+  "action": {
+    "default_title": "Video Get",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "options.html",
+  "permissions": ["activeTab", "storage", "nativeMessaging"],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

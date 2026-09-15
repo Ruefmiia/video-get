@@ -1,0 +1,9 @@
+{
+  "name": "com.videoget.companion",
+  "description": "Video Get local configuration bridge",
+  "path": "VideoGetNativeHost.exe",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://oeljgkmlecbmognidgcgfemcicclbofe/"
+  ]
+}

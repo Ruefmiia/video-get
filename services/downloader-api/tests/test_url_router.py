@@ -11,7 +11,12 @@ from video_get.providers.url_router import UrlRouter
     [
         ("https://twitter.com/user/status/123?s=20", PlatformId.X, "https://x.com/user/status/123"),
         (
-            "https://instagram.com/reel/ABC/?igsh=test",
+            "https://instagram.com/reel/ABC/?igsh=test&stkn=share-token",
+            PlatformId.INSTAGRAM,
+            "https://www.instagram.com/reel/ABC",
+        ),
+        (
+            "https://instagram.com/reels/ABC/?igsh=test",
             PlatformId.INSTAGRAM,
             "https://www.instagram.com/reel/ABC",
         ),
@@ -37,7 +42,9 @@ def test_routes_known_urls(url: str, platform: PlatformId, canonical: str) -> No
     "url",
     [
         "file:///etc/passwd",
+        "http://[",
         "http://127.0.0.1/video",
+        "https://8.8.8.8/video",
         "https://example.com/video",
         "https://x.com/home",
         "https://instagram.com/accounts/login",

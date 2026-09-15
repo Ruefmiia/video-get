@@ -1,0 +1,19 @@
+:root { font-family: Inter, "Segoe UI", "Microsoft YaHei", sans-serif; color: #32101a; background: #fff8f8; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; font-size: 16px; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid rgba(29,78,216,.32); outline-offset: 2px; }
+.options-shell { width: min(100% - 32px, 680px); margin: 56px auto; }
+header span { color: #be123c; font: 700 12px ui-monospace, monospace; letter-spacing: .14em; }
+h1 { margin: 8px 0; font-size: clamp(28px, 5vw, 42px); line-height: 1.15; }
+header p { max-width: 570px; margin: 0; color: #69565c; line-height: 1.65; }
+form { display: grid; gap: 24px; margin: 34px 0 20px; padding: 28px; background: white; border: 1px solid #f3c9d2; border-radius: 12px; box-shadow: 0 5px 18px rgba(74,16,35,.07); }
+.field { display: grid; gap: 8px; }.field label { font-weight: 700; }.field small { color: #69565c; line-height: 1.5; }
+input { width: 100%; min-height: 46px; padding: 10px 12px; color: #32101a; background: white; border: 1px solid #cdb9be; border-radius: 8px; }
+.token-field { display: grid; grid-template-columns: 1fr auto; gap: 8px; }.token-field button { min-width: 68px; min-height: 46px; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; font-weight: 700; }
+.form-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }.save, .discover { min-height: 48px; border-radius: 8px; font-weight: 700; }.save { color: white; background: #1d4ed8; border: 0; }.save:hover { background: #1e40af; }.discover { color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; }.save:disabled, .discover:disabled { cursor: not-allowed; opacity: .5; }
+.options-status { min-height: 24px; color: #69565c; }
+aside { padding: 18px 20px; color: #713f12; background: #fefce8; border-left: 4px solid #ca8a04; line-height: 1.6; } aside p { margin: 6px 0 0; } code { padding: 2px 4px; background: #fef3c7; border-radius: 3px; }
+@media (max-width: 520px) { .options-shell { margin: 28px auto; } form { padding: 20px; } .token-field, .form-actions { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }

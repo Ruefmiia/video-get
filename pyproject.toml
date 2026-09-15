@@ -9,6 +9,7 @@ description = "Local-first media download API for Video Get"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "alembic>=1.14,<2",
   "fastapi>=0.115,<1",
   "sqlalchemy>=2.0,<3",
   "uvicorn[standard]>=0.30,<1",
@@ -31,9 +32,9 @@ video-get-api = "video_get.__main__:main"
 packages = ["services/downloader-api/src/video_get"]
 
 [tool.pytest.ini_options]
-addopts = "-q"
-testpaths = ["services/downloader-api/tests"]
-pythonpath = ["services/downloader-api/src"]
+addopts = "-q --cov=video_get --cov-branch --cov-report=term-missing --cov-fail-under=80"
+testpaths = ["services/downloader-api/tests", "apps/desktop-companion/tests"]
+pythonpath = ["services/downloader-api/src", "apps/desktop-companion/src"]
 
 [tool.ruff]
 line-length = 100
@@ -49,5 +50,5 @@ packages = ["video_get"]
 mypy_path = "services/downloader-api/src"
 
 [[tool.mypy.overrides]]
-module = ["yt_dlp", "yt_dlp.*"]
+module = ["yt_dlp", "yt_dlp.*", "pystray", "pystray.*"]
 ignore_missing_imports = true

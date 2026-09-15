@@ -103,3 +103,12 @@ apps/browser-extension/
 - 扩展重启后能恢复正在显示任务的状态。
 - 权限清单通过人工审查，没有不必要的全站权限。
 - 扩展不包含远程加载执行代码。
+
+## 当前实现（0.1.0）
+
+- 源码位于 `apps/browser-extension`，采用 React、TypeScript、Vite 和 Manifest V3。
+- `npm run build` 分别生成 `dist/chrome` 与 `dist/edge`，两者共享最小权限清单。
+- 设置页允许手动配置固定本地地址和访问令牌；令牌仅写入 `chrome.storage.local`，不使用同步存储。
+- 弹窗读取用户当前激活标签，也允许粘贴链接。分析、格式选择、创建任务和进度恢复均通过本地 API 完成。
+- Threads 会调用 `/api/v1/analyze` 获取权威的 501 结果，显示计划中状态，且不显示下载动作。
+- 阶段 3 接入桌面辅助程序后，将用服务发现与令牌交换替代手动令牌配置。

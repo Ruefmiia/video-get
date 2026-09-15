@@ -4,7 +4,7 @@
 
 第一阶段使用 `FastAPI + yt-dlp + FFmpeg + SQLite` 构建桌面下载核心；浏览器扩展通过本机 API 使用该核心。Android 版本采用 Kotlin 原生界面，并在设备内运行 yt-dlp/FFmpeg。
 
-当前文档只规划开发顺序 1–5，不包含功能实现。Threads 已保留平台标识、URL 路由、能力声明和 Provider 扩展点，但暂不开发解析与下载功能。
+阶段 1 下载核心、阶段 2 Chrome/Edge 扩展和阶段 3 Windows 桌面辅助程序已经实现。Threads 已保留平台标识、URL 路由、能力声明和 Provider/UI 扩展点，但暂不开发解析与下载功能。
 
 ## 文档导航
 
@@ -56,7 +56,7 @@ video-get/
 
 ## 当前开发状态
 
-阶段 1 已开始，当前包含 FastAPI 服务骨架、平台 URL 路由、yt-dlp Provider、后台下载任务、SQLite 历史记录、本地令牌认证及 Threads 占位契约。
+阶段 1、阶段 2 与阶段 3 已完成，阶段 4 的 X/Instagram 端到端强化正在进行。当前包含 FastAPI 下载服务、可构建 Chrome/Edge 的 Manifest V3 扩展，以及带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包。扩展可通过 Native Messaging 自动获得本机服务地址和访问令牌，并已支持多媒体条目选择、取消、重试和细分源站错误提示。Threads 保持“已识别、计划中、不可下载”。
 
 ### 本地运行
 
@@ -80,3 +80,15 @@ python -m pytest
 $env:PYTHONPATH = "services/downloader-api/src"
 python scripts/export_openapi.py
 ```
+
+### 构建浏览器扩展
+
+```powershell
+cd apps/browser-extension
+npm install
+npm run typecheck
+npm test
+npm run build
+```
+
+构建结果分别位于 `apps/browser-extension/dist/chrome` 和 `apps/browser-extension/dist/edge`。在 `chrome://extensions` 或 `edge://extensions` 开启开发者模式后，使用“加载已解压的扩展程序”选择对应目录。第一次使用需打开扩展设置，填写本地 API 地址和 `.video-get/api-token` 中的令牌。
