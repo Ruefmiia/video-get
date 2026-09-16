@@ -1,5 +1,6 @@
 package com.videoget.app.downloads
 
+import android.content.Context
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.yausername.youtubedl_android.YoutubeDL
@@ -7,6 +8,8 @@ import com.yausername.youtubedl_android.YoutubeDLRequest
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class AnalyzedMedia(
     val title: String,
@@ -29,7 +32,18 @@ object MediaAnalyzer {
         DownloadFormat("720", "最高 720p", "bestvideo[height<=720]+bestaudio/best[height<=720]"),
     )
 
-    fun analyze(url: String): AnalyzedMedia {
+    suspend fun analyze(context: Context, url: String): AnalyzedMedia {
+        if (isThreadsUrl(url)) {
+            return try {
+                withContext(Dispatchers.IO) { ThreadsAnalyzer.analyze(url) }
+            } catch (error: ThreadsAnalyzer.DynamicThreadsShareException) {
+                ThreadsWebViewAnalyzer.analyze(context, url)
+            }
+        }
+        return withContext(Dispatchers.IO) { analyzeWithYtDlp(url) }
+    }
+
+    private fun analyzeWithYtDlp(url: String): AnalyzedMedia {
         val request = YoutubeDLRequest(url).apply {
             addOption("--no-playlist")
             addOption("--no-warnings")
@@ -105,6 +119,10 @@ object MediaAnalyzer {
 
     private fun isXUrl(url: String): Boolean = runCatching {
         URI(url).host.lowercase() in setOf("x.com", "www.x.com", "twitter.com", "www.twitter.com")
+    }.getOrDefault(false)
+
+    private fun isThreadsUrl(url: String): Boolean = runCatching {
+        URI(url).host.lowercase() in setOf("threads.com", "www.threads.com", "threads.net", "www.threads.net")
     }.getOrDefault(false)
 
     private fun bitrateFromId(id: String) = id.substringAfter("fx_", "0").toLongOrNull() ?: 0

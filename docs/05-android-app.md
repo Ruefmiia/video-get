@@ -7,7 +7,7 @@
 - Kotlin + Jetpack Compose 单模块工程和 Gradle Wrapper。
 - 手动输入、由用户主动触发的剪贴板粘贴、系统 `ACTION_SEND` 文本分享入口。
 - X、Instagram、Threads URL 严格识别、规范化与分享跟踪参数清理。
-- Threads 显示“已规划，暂不可下载”，不会进入通用下载器。
+- Threads 使用原生 Kotlin 页面解析器，不进入通用 yt-dlp 下载器。
 - 浅色/深色主题、边到边安全区、48dp 触控目标、文本与颜色共同表达状态。
 - URL 路由单元测试。
 - 设备内 yt-dlp 媒体分析和 FFmpeg 音视频合并。
@@ -124,14 +124,16 @@ yt-dlp、Python、FFmpeg 会显著增加包体积：
 - 不远程下发 Python/JavaScript 代码规避应用商店审核。
 - 某平台失效时可通过远程配置临时关闭入口，并提示更新 App。
 
-## Threads 占位
+## Threads 公开视频支持
 
-Android 与桌面端保持相同规则：
+Android 当前规则：
 
-- URL 识别器包含 Threads 域名和路径。
-- Provider 注册表包含 `threads` capability，但 `available=false`。
-- 分享 Threads 链接时进入分析页，显示“已规划，暂不可下载”。
-- 不将 Threads URL 交给通用 extractor。
+- URL 识别器支持 `threads.com`、`threads.net`、`/t/` 和 `/share/` 路径。
+- 使用链接预览爬虫 User-Agent 获取公开页面内嵌 JSON。
+- 严格匹配请求的 shortcode，不回退到回复或推荐帖的视频。
+- 支持单视频与多视频轮播中的 MP4 直链。
+- 不将 Threads URL 交给通用 yt-dlp extractor。
+- 不支持私密、删除或需要登录的帖子，也不读取 Cookie。
 - Room 的 `platform` 字段使用字符串。
 - UI 支持未来一个帖子多个 `MediaAsset`，不假设每个 URL 只有一个视频。
 
@@ -151,5 +153,5 @@ Android 与桌面端保持相同规则：
 - 取消、重试、空间不足和网络中断处理正确。
 - 文件出现在系统媒体库，文件名和元数据正确。
 - 不需要云服务器即可完成全流程。
-- Threads 被识别为计划中且不能下载。
+- 公开 Threads 单视频与轮播视频可分析和下载，错误帖子不会回退到页面中的其他媒体。
 - 发布构建通过许可证、权限、包体积和目标 API 检查。

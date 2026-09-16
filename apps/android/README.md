@@ -26,7 +26,8 @@ cd apps/android
 - 使用 WorkManager 前台任务下载、合并音视频、显示进度并支持取消。
 - Android 10+ 保存到系统媒体库 `Movies/Video Get`。
 - X 的 yt-dlp 解析失败时，可使用 FxTwitter 获取公开帖子媒体直链；实际视频仍直接从 `video.twimg.com` 下载。
-- Threads 链接仅识别并显示计划状态。
+- 支持公开 Threads 单视频和多视频帖，含 `threads.com`、`threads.net`、`/t/` 与分享链接。
+- Threads 解析严格匹配目标 shortcode，不会选取页面中的回复或推荐视频。
 - 不读取 Cookie，不绕过登录、DRM 或访问控制。
 - 不需要云服务器；后续下载引擎也计划在设备本地执行。
 
@@ -35,3 +36,7 @@ cd apps/android
 ## X 回退解析与隐私
 
 默认先使用设备内 yt-dlp。仅当公开 X 帖子解析失败时，App 才会请求 `api.fxtwitter.com`，请求内容包含公开帖子路径（用户名和帖子 ID）。FxTwitter 只用于获取媒体元数据；视频字节由手机直接从 X 的 `video.twimg.com` 下载，不经过 Video Get 服务器。此回退依赖第三方服务的可用性与隐私政策。
+
+## Threads 解析边界
+
+Threads 使用设备内 Kotlin 解析器，请求公开帖子页面并提取 Meta 提供给链接预览爬虫的媒体数据。App 不提交 Threads 账号、密码或 Cookie，不支持私密、已删除及登录后可见帖子。页面结构变化可能需要发布新版 App 修复。

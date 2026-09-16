@@ -17,12 +17,12 @@ import com.videoget.app.domain.UrlMatch
 import com.videoget.app.domain.UrlRouter
 import com.videoget.app.downloads.DownloadFormat
 import com.videoget.app.downloads.DownloadWorker
+import com.videoget.app.downloads.DownloadRequestStore
 import com.videoget.app.downloads.MediaAnalyzer
-import kotlinx.coroutines.Dispatchers
+import com.videoget.app.downloads.StoredDownloadRequest
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.UUID
 
 data class HomeUiState(
@@ -84,7 +84,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     message = "正在设备本地分析媒体信息…",
                 )
                 viewModelScope.launch {
-                    runCatching { withContext(Dispatchers.IO) { MediaAnalyzer.analyze(match.canonicalUrl) } }
+                    runCatching { MediaAnalyzer.analyze(getApplication(), match.canonicalUrl) }
                         .onSuccess { media ->
                             uiState = uiState.copy(
                                 state = AnalyzeState.READY,
@@ -112,21 +112,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun download() {
         val state = uiState
         val format = state.formats.firstOrNull { it.id == state.selectedFormatId } ?: return
-        val request = OneTimeWorkRequestBuilder<DownloadWorker>()
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .setInputData(
-                Data.Builder()
-                    .putString(DownloadWorker.KEY_URL, state.match?.canonicalUrl)
-                    .putString(DownloadWorker.KEY_FORMAT, format.selector)
-                    .putString(DownloadWorker.KEY_DIRECT_URL, format.directUrl)
-                    .putString(DownloadWorker.KEY_TITLE, state.title)
-                    .build(),
+        val result = runCatching {
+            val requestId = DownloadRequestStore.save(
+                getApplication(),
+                StoredDownloadRequest(
+                    url = state.match?.canonicalUrl ?: error("缺少下载链接"),
+                    selector = format.selector,
+                    directUrl = format.directUrl,
+                    title = state.title,
+                ),
             )
-            .build()
-        activeWorkId = request.id
-        workManager.enqueue(request)
-        uiState = state.copy(state = AnalyzeState.DOWNLOADING, progress = 0, message = "下载任务已开始。")
-        observe(request.id)
+            try {
+                OneTimeWorkRequestBuilder<DownloadWorker>()
+                    .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                    .setInputData(Data.Builder().putString(DownloadWorker.KEY_REQUEST_ID, requestId).build())
+                    .build()
+                    .also(workManager::enqueue)
+            } catch (error: Exception) {
+                DownloadRequestStore.delete(getApplication(), requestId)
+                throw error
+            }
+        }
+        result.onSuccess { request ->
+            activeWorkId = request.id
+            uiState = state.copy(state = AnalyzeState.DOWNLOADING, progress = 0, message = "下载任务已开始。")
+            observe(request.id)
+        }.onFailure { error ->
+            uiState = state.copy(state = AnalyzeState.READY, message = "无法启动下载：${friendlyError(error)}")
+        }
     }
 
     fun cancelDownload() {
@@ -167,8 +180,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val text = error.message.orEmpty()
         return when {
             text.contains("Unsupported URL", true) -> "该链接暂不受支持"
-            text.contains("I/O operation on closed file", true) -> "X 元数据连接被中断，请检查手机网络或代理后重试"
-            text.contains("timed out", true) -> "连接 X 元数据接口超时，请检查手机网络或代理后重试"
+            text.contains("I/O operation on closed file", true) -> "媒体服务连接被中断，请检查手机网络或代理后重试"
+            text.contains("timed out", true) -> "媒体服务连接超时，请检查手机网络或代理后重试"
             text.contains("login", true) || text.contains("cookies", true) -> "内容需要登录，第一版不读取账号 Cookie"
             text.isBlank() -> "无法获取媒体信息，请检查网络后重试"
             else -> text.take(240)

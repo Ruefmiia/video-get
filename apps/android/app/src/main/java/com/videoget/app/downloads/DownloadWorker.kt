@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -30,18 +31,22 @@ class DownloadWorker(
     private val notifications = appContext.getSystemService(NotificationManager::class.java)
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        val url = inputData.getString(KEY_URL) ?: return@withContext Result.failure(failureData("缺少下载链接"))
-        val selector = inputData.getString(KEY_FORMAT) ?: "best"
-        val directUrl = inputData.getString(KEY_DIRECT_URL)
-        val title = inputData.getString(KEY_TITLE).orEmpty()
-        val workDir = File(applicationContext.cacheDir, "downloads/$processId").apply { mkdirs() }
-        createChannel()
-        setForeground(foreground(0, title.ifBlank { "准备下载" }))
+        val requestId = inputData.getString(KEY_REQUEST_ID)
         try {
-            val media = if (directUrl != null) {
-                downloadDirect(directUrl, workDir, title)
+            val request = requestId?.let { DownloadRequestStore.load(applicationContext, it) }
+                ?: StoredDownloadRequest(
+                    url = inputData.getString(KEY_URL) ?: error("缺少下载链接"),
+                    selector = inputData.getString(KEY_FORMAT) ?: "best",
+                    directUrl = inputData.getString(KEY_DIRECT_URL),
+                    title = inputData.getString(KEY_TITLE).orEmpty(),
+                )
+            val workDir = File(applicationContext.cacheDir, "downloads/$processId").apply { mkdirs() }
+            createChannel()
+            setForeground(foreground(0, request.title.ifBlank { "准备下载" }))
+            val media = if (request.directUrl != null) {
+                downloadDirect(request.directUrl, workDir, request.title)
             } else {
-                downloadWithYtDlp(url, selector, workDir, title)
+                downloadWithYtDlp(request.url, request.selector, workDir, request.title)
             }
             val saved = publish(media)
             workDir.deleteRecursively()
@@ -49,6 +54,8 @@ class DownloadWorker(
             Result.success(Data.Builder().putString(KEY_OUTPUT, saved).build())
         } catch (error: Exception) {
             Result.failure(failureData(error.message ?: "下载失败"))
+        } finally {
+            DownloadRequestStore.delete(applicationContext, requestId)
         }
     }
 
@@ -80,8 +87,12 @@ class DownloadWorker(
 
     private fun downloadDirect(rawUrl: String, workDir: File, title: String): File {
         val uri = URI(rawUrl)
-        require(uri.scheme == "https" && uri.host.equals("video.twimg.com", ignoreCase = true)) {
-            "拒绝非 X 官方媒体地址"
+        val host = uri.host.lowercase()
+        val allowedHost = host == "video.twimg.com" ||
+            host == "cdninstagram.com" || host.endsWith(".cdninstagram.com") ||
+            host == "fbcdn.net" || host.endsWith(".fbcdn.net")
+        require(uri.scheme == "https" && allowedHost) {
+            "拒绝非受信任媒体地址"
         }
         val output = File(workDir, "video-get-${System.currentTimeMillis()}.mp4")
         val connection = URL(rawUrl).openConnection() as HttpURLConnection
@@ -90,6 +101,9 @@ class DownloadWorker(
             connection.connectTimeout = 30_000
             connection.readTimeout = 60_000
             connection.setRequestProperty("User-Agent", "VideoGet/0.1 (+https://github.com/Ruefmiia/video-get)")
+            if (host.endsWith("cdninstagram.com") || host.endsWith("fbcdn.net")) {
+                connection.setRequestProperty("Referer", "https://www.threads.com/")
+            }
             if (connection.responseCode !in 200..299) error("视频服务器 HTTP ${connection.responseCode}")
             val total = connection.contentLengthLong
             connection.inputStream.use { input ->
@@ -158,6 +172,7 @@ class DownloadWorker(
     private fun foreground(progress: Int, text: String) = ForegroundInfo(
         NOTIFICATION_ID,
         notification(progress, text),
+        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
     )
 
     private fun notification(progress: Int, text: String) = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
@@ -180,6 +195,7 @@ class DownloadWorker(
         const val KEY_ETA = "eta"
         const val KEY_OUTPUT = "output"
         const val KEY_ERROR = "error"
+        const val KEY_REQUEST_ID = "request_id"
         private const val CHANNEL_ID = "video_downloads"
         private const val NOTIFICATION_ID = 17382
         private val MEDIA_EXTENSIONS = setOf("mp4", "mkv", "webm", "mov")

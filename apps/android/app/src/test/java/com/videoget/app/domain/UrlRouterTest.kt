@@ -1,7 +1,6 @@
 package com.videoget.app.domain
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -20,10 +19,14 @@ class UrlRouterTest {
     }
 
     @Test
-    fun keepsThreadsRecognizedButUnavailable() {
+    fun recognizesThreadsAsAvailable() {
         val match = UrlRouter.match("https://threads.net/@user/post/ABC")
         assertEquals(PlatformId.THREADS, match?.platform)
-        assertFalse(match?.available ?: true)
+        assertTrue(match?.available ?: false)
+        assertEquals(
+            "https://www.threads.com/@user/post/ABC",
+            match?.canonicalUrl,
+        )
     }
 
     @Test

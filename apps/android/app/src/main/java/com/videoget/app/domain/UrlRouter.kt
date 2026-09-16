@@ -28,7 +28,7 @@ object UrlRouter {
             PlatformId.INSTAGRAM -> parts.size >= 2 && parts[0] in setOf("p", "reel", "reels")
             PlatformId.THREADS ->
                 (parts.size >= 3 && parts[0].startsWith('@') && parts[1] == "post") ||
-                    (parts.size >= 2 && parts[0] == "share")
+                    (parts.size >= 2 && parts[0] in setOf("share", "t"))
         }
         if (!valid) return null
         val canonicalHost = when (platform) {
@@ -48,6 +48,6 @@ object UrlRouter {
         }.joinToString("&")
         val path = canonicalParts.joinToString(separator = "/", prefix = "/")
         val suffix = if (query.isBlank()) "" else "?$query"
-        return UrlMatch(platform, "https://$canonicalHost$path$suffix", platform != PlatformId.THREADS)
+        return UrlMatch(platform, "https://$canonicalHost$path$suffix", true)
     }
 }

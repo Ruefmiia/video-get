@@ -4,7 +4,7 @@
 
 第一阶段使用 `FastAPI + yt-dlp + FFmpeg + SQLite` 构建桌面下载核心；浏览器扩展通过本机 API 使用该核心。Android 版本采用 Kotlin 原生界面，并在设备内运行 yt-dlp/FFmpeg。
 
-阶段 1 下载核心、阶段 2 Chrome/Edge 扩展、阶段 3 Windows 桌面辅助程序和阶段 4 X/Instagram 端到端强化已经实现。阶段 5 Android App 已进入开发，当前具备 Kotlin/Jetpack Compose 工程、手动粘贴、系统分享、URL 规范化与 Threads 占位能力。Threads 已保留平台标识、URL 路由、能力声明和 Provider/UI 扩展点，但暂不开发解析与下载功能。
+阶段 1 下载核心、阶段 2 Chrome/Edge 扩展、阶段 3 Windows 桌面辅助程序和阶段 4 X/Instagram 端到端强化已经实现。阶段 5 Android App 已具备 Kotlin/Jetpack Compose 界面、手动粘贴、系统分享、设备内下载，以及公开 Threads 视频解析能力。
 
 ## 文档导航
 
@@ -45,7 +45,7 @@ video-get/
 
 不包含：
 
-- Threads 实际解析与下载
+- Threads 私密、登录后可见内容或账号批量抓取
 - DRM、付费墙或访问控制绕过
 - 云端视频代理、用户系统、会员系统和跨设备同步
 - 私密内容或批量账号抓取
@@ -56,7 +56,7 @@ video-get/
 
 ## 当前开发状态
 
-阶段 1 至阶段 4 已完成，阶段 5 Android App 正在开发。当前包含 FastAPI 下载服务、可构建 Chrome/Edge 的 Manifest V3 扩展、带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包，以及 Android 原生工程的第一里程碑。Android 端目前可接收分享或手动粘贴链接并识别 X、Instagram、Threads；本地下载引擎、后台任务和媒体库写入将在后续里程碑接入。Threads 保持“已识别、计划中、不可下载”。
+阶段 1 至阶段 4 已完成，阶段 5 Android App 正在开发。当前包含 FastAPI 下载服务、可构建 Chrome/Edge 的 Manifest V3 扩展、带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包。Android 端可接收分享或手动粘贴链接，使用设备内 yt-dlp/FFmpeg 下载 X 与 Instagram，并通过原生 Kotlin 解析器下载公开 Threads 视频。私密、删除或登录后可见的 Threads 内容不受支持。
 
 ### Android 开发
 
