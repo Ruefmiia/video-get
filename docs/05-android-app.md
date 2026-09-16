@@ -1,6 +1,6 @@
 # 阶段 5：Android App
 
-## 当前实现（里程碑 5.2）
+## 当前实现（里程碑 5.3）
 
 已完成：
 
@@ -15,11 +15,16 @@
 - WorkManager 网络约束、前台下载通知、进度、取消与失败恢复入口。
 - Android 10+ 通过 MediaStore 保存到 `Movies/Video Get`。
 - X 解析失败时通过 FxTwitter 获取公开媒体直链，并从 `video.twimg.com` 直接下载。
+- Threads 支持正式帖子、`/t/`、`/share/`、轮播、嵌套/引用媒体和基础 DASH 视频地址。
+- 下载参数通过 App 私有缓存传递给 WorkManager，避免超长媒体 URL 超出输入数据上限。
+- Android 14+ 前台下载显式使用 `dataSync` 服务类型。
 
 尚未完成：
 
 - 多任务下载队列、显式重试策略与 Room 历史记录。
 - Android 9 的公共媒体库兼容写入；当前回退到 App 专属 Movies 目录。
+- 仅通过 JavaScript 动态注入目标的 Threads `xmt` 页面仍需完善已布局 WebView、懒加载与资源诊断。
+- 仅提供分离 DASH 音视频轨道的帖子仍需下载与 FFmpeg 合并支持。
 - 真机端到端、包体积、ABI、许可证和发布构建验收。
 
 当前构建基线为 AGP 9.4.0、Gradle 9.6.0、Compose BOM 2025.12.00、`compileSdk 36`、`targetSdk 36`、`minSdk 26`。Compose 1.12 起要求 `compileSdk 37`，因此 API 36 构建暂时固定使用 Compose 1.10 系列。AGP 9 默认使用内置 Kotlin，因此工程不再应用旧的 `org.jetbrains.kotlin.android` 插件。
@@ -131,7 +136,8 @@ Android 当前规则：
 - URL 识别器支持 `threads.com`、`threads.net`、`/t/` 和 `/share/` 路径。
 - 使用链接预览爬虫 User-Agent 获取公开页面内嵌 JSON。
 - 严格匹配请求的 shortcode，不回退到回复或推荐帖的视频。
-- 支持单视频与多视频轮播中的 MP4 直链。
+- 支持单视频、轮播、嵌套/引用媒体中的 Meta CDN 直链，以及基础 DASH 视频 `BaseURL`。
+- 静态 `xmt` 信息不足时存在受限 WebView 后备；该路径仍在稳定化，无法确认目标时会拒绝下载。
 - 不将 Threads URL 交给通用 yt-dlp extractor。
 - 不支持私密、删除或需要登录的帖子，也不读取 Cookie。
 - Room 的 `platform` 字段使用字符串。

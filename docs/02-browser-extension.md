@@ -72,6 +72,8 @@ apps/browser-extension/
 
 ## Threads 占位体验
 
+> 此处描述浏览器扩展连接桌面 FastAPI 时的状态。Android 客户端已独立支持部分公开 Threads 视频，但桌面 API/扩展尚未启用 Threads 下载。
+
 扩展必须识别以下 URL：
 
 - `threads.com/@.../post/...`

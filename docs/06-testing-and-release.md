@@ -89,9 +89,11 @@
 - 发布说明列出 yt-dlp 和 FFmpeg 版本。
 - 平台故障不能伪装成客户端网络故障。
 
-## 5. Threads 开发启动条件
+## 5. Threads 开发状态与启动条件
 
-虽然当前不开发，满足以下条件后可开启独立阶段：
+Android Threads 支持已经启动并处于实验阶段：已覆盖公开正式链接、分享链接、轮播和嵌套媒体。以下条件现在作为 Android 稳定化与未来桌面 Provider 启用前的验收要求，而非尚未开始开发的门槛：
+
+继续稳定 Android 支持并在未来启用桌面 Provider 前，应满足以下条件：
 
 - X 与 Instagram 的端到端成功率和错误分类已经稳定。
 - 已准备自有 Threads 视频、轮播、删除和登录要求样本。
@@ -99,4 +101,4 @@
 - 已评估独立解析器与 yt-dlp 插件两种实现。
 - 有平台变化监控、快速停用开关和回归测试负责人。
 
-开启后应新增 `ThreadsProvider`，将 capability 的 `status` 从 `planned` 改为 `experimental`；客户端协议与数据库结构不应因此改变。
+桌面链路开启后应新增 `ThreadsProvider`，将桌面 API capability 的 `status` 从 `planned` 改为 `experimental`；客户端协议与数据库结构不应因此改变。Android 独立解析器的状态不自动改变桌面 capability。

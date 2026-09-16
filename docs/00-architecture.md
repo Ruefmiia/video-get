@@ -74,9 +74,11 @@ Provider 必须做到：
 
 第一版实现 `YtDlpProvider`，并通过平台配置启用 X 与 Instagram。
 
-## 4. Threads 预留设计
+## 4. Threads 平台边界
 
-Threads 暂不实现，但从第一天起保留以下能力：
+桌面 FastAPI/浏览器扩展链路当前仍将 Threads 保持为 `planned`；Android 客户端已通过独立 Kotlin 解析器实验支持公开 Threads 视频。两条链路共享平台标识和数据模型，但不共享解析实现。
+
+桌面/API 侧继续保留以下约定：
 
 ```text
 PlatformId: threads
@@ -98,7 +100,7 @@ Potential capabilities:
 6. 数据库中平台字段使用字符串而非数据库枚举，避免增加平台时迁移表结构。
 7. 前端显示“Threads 支持即将推出”，不能显示下载按钮或伪装成可用。
 
-未来 Threads Provider 应独立于 `YtDlpProvider`，也可以由 yt-dlp 插件适配器实现；上层 API 无需变化。
+未来桌面 Threads Provider 应独立于 `YtDlpProvider`，也可以由 yt-dlp 插件适配器实现；上层 API 无需变化。Android 已采用独立解析器，不将 Threads URL 交给通用 yt-dlp fallback。
 
 ## 5. 核心数据模型
 

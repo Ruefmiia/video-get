@@ -16,7 +16,7 @@
 - [阶段 5：Android App](docs/05-android-app.md)
 - [测试、发布与验收策略](docs/06-testing-and-release.md)
 
-## 计划中的目录结构
+## 目录结构
 
 ```text
 video-get/
@@ -56,7 +56,7 @@ video-get/
 
 ## 当前开发状态
 
-阶段 1 至阶段 4 已完成，阶段 5 Android App 正在开发。当前包含 FastAPI 下载服务、可构建 Chrome/Edge 的 Manifest V3 扩展、带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包。Android 端可接收分享或手动粘贴链接，使用设备内 yt-dlp/FFmpeg 下载 X 与 Instagram，并通过原生 Kotlin 解析器下载公开 Threads 视频。私密、删除或登录后可见的 Threads 内容不受支持。
+阶段 1 至阶段 4 已完成，阶段 5 Android App 已完成本地下载主流程，当前进入稳定性和发布准备。项目包含 FastAPI 下载服务、可构建 Chrome/Edge 的 Manifest V3 扩展、带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包。Android 端可接收分享或手动粘贴链接，使用设备内 yt-dlp/FFmpeg 下载 X 与 Instagram，并通过原生 Kotlin 解析器下载公开 Threads 视频。私密、删除或登录后可见的 Threads 内容不受支持。
 
 ### Android 开发
 
@@ -67,7 +67,7 @@ video-get/
 .\gradlew.bat assembleDebug
 ```
 
-Android 第一版采用设备本地处理，不要求部署云服务器。当前工程尚未绑定 yt-dlp/FFmpeg Android 包，接入前需先完成 GPL/LGPL 许可证与应用发布方式评审。
+Android 第一版采用设备本地处理，不要求部署云服务器。当前工程已接入 `youtubedl-android 0.18.1` 的 yt-dlp 与 FFmpeg 模块；公开分发前必须完成 GPL-3.0、传递依赖、对应源码和应用发布方式评审。
 
 ### 本地运行
 

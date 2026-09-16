@@ -1,6 +1,6 @@
 # Video Get Android
 
-阶段 5 的原生 Android 客户端。里程碑 5.2 已接入设备本地 yt-dlp/FFmpeg 下载链路。
+阶段 5 的原生 Android 客户端。当前里程碑 5.3 已完成设备本地 yt-dlp/FFmpeg 下载主流程、公开 Threads 解析和 Android 14+ 前台下载适配，正在进行稳定性与发布验收。
 
 ## 环境
 
@@ -29,7 +29,7 @@ cd apps/android
 - 支持公开 Threads 单视频和多视频帖，含 `threads.com`、`threads.net`、`/t/` 与分享链接。
 - Threads 解析严格匹配目标 shortcode，不会选取页面中的回复或推荐视频。
 - 不读取 Cookie，不绕过登录、DRM 或访问控制。
-- 不需要云服务器；后续下载引擎也计划在设备本地执行。
+- 不需要云服务器；下载、FFmpeg 后处理和 Threads 解析均在设备本地执行。
 
 当前使用 `youtubedl-android 0.18.1` 的 library 与 ffmpeg 模块。分发 APK 前必须遵循 GPL-3.0，并随发行物提供相应源码和许可证信息，详见 `THIRD_PARTY_NOTICES.md`。
 
@@ -39,4 +39,4 @@ cd apps/android
 
 ## Threads 解析边界
 
-Threads 使用设备内 Kotlin 解析器，请求公开帖子页面并提取 Meta 提供给链接预览爬虫的媒体数据。App 不提交 Threads 账号、密码或 Cookie，不支持私密、已删除及登录后可见帖子。页面结构变化可能需要发布新版 App 修复。
+Threads 使用设备内 Kotlin 解析器，请求公开帖子页面并提取 Meta 提供的媒体数据。当前支持正式帖子 URL、`/t/`、`/share/`、单视频、轮播、嵌套/引用媒体和基础 DASH 视频地址；解析时严格匹配目标帖子，不回退到推荐流。新版 `xmt` 页面仅在静态响应包含可验证目标标识时可靠，纯 JavaScript 动态注入页面的 WebView 后备仍在稳定化。App 不提交 Threads 账号、密码或外部浏览器 Cookie，不支持私密、已删除及登录后可见帖子。
