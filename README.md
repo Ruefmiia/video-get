@@ -4,7 +4,7 @@
 
 第一阶段使用 `FastAPI + yt-dlp + FFmpeg + SQLite` 构建桌面下载核心；浏览器扩展通过本机 API 使用该核心。Android 版本采用 Kotlin 原生界面，并在设备内运行 yt-dlp/FFmpeg。
 
-阶段 1 下载核心、阶段 2 Chrome/Edge 扩展和阶段 3 Windows 桌面辅助程序已经实现。Threads 已保留平台标识、URL 路由、能力声明和 Provider/UI 扩展点，但暂不开发解析与下载功能。
+阶段 1 下载核心、阶段 2 Chrome/Edge 扩展、阶段 3 Windows 桌面辅助程序和阶段 4 X/Instagram 端到端强化已经实现。阶段 5 Android App 已进入开发，当前具备 Kotlin/Jetpack Compose 工程、手动粘贴、系统分享、URL 规范化与 Threads 占位能力。Threads 已保留平台标识、URL 路由、能力声明和 Provider/UI 扩展点，但暂不开发解析与下载功能。
 
 ## 文档导航
 
@@ -56,7 +56,18 @@ video-get/
 
 ## 当前开发状态
 
-阶段 1、阶段 2 与阶段 3 已完成，阶段 4 的 X/Instagram 端到端强化正在进行。当前包含 FastAPI 下载服务、可构建 Chrome/Edge 的 Manifest V3 扩展，以及带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包。扩展可通过 Native Messaging 自动获得本机服务地址和访问令牌，并已支持多媒体条目选择、取消、重试和细分源站错误提示。Threads 保持“已识别、计划中、不可下载”。
+阶段 1 至阶段 4 已完成，阶段 5 Android App 正在开发。当前包含 FastAPI 下载服务、可构建 Chrome/Edge 的 Manifest V3 扩展、带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包，以及 Android 原生工程的第一里程碑。Android 端目前可接收分享或手动粘贴链接并识别 X、Instagram、Threads；本地下载引擎、后台任务和媒体库写入将在后续里程碑接入。Threads 保持“已识别、计划中、不可下载”。
+
+### Android 开发
+
+需要 JDK 17 或更高版本、Android SDK Platform 36、Android SDK Build-Tools，以及接受相应 SDK 许可。可使用 Android 命令行工具安装，无需 Android Studio；然后在 `apps/android` 中执行：
+
+```powershell
+.\gradlew.bat test
+.\gradlew.bat assembleDebug
+```
+
+Android 第一版采用设备本地处理，不要求部署云服务器。当前工程尚未绑定 yt-dlp/FFmpeg Android 包，接入前需先完成 GPL/LGPL 许可证与应用发布方式评审。
 
 ### 本地运行
 

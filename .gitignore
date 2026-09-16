@@ -14,7 +14,11 @@ apps/desktop-companion/installer/Output/
 dist/
 build/
 .video-get/
-downloads/
+.gradle/
+.idea/
+local.properties
+captures/
+/downloads/
 *.db
 *.db-shm
 *.db-wal

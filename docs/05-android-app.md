@@ -1,5 +1,29 @@
 # 阶段 5：Android App
 
+## 当前实现（里程碑 5.2）
+
+已完成：
+
+- Kotlin + Jetpack Compose 单模块工程和 Gradle Wrapper。
+- 手动输入、由用户主动触发的剪贴板粘贴、系统 `ACTION_SEND` 文本分享入口。
+- X、Instagram、Threads URL 严格识别、规范化与分享跟踪参数清理。
+- Threads 显示“已规划，暂不可下载”，不会进入通用下载器。
+- 浅色/深色主题、边到边安全区、48dp 触控目标、文本与颜色共同表达状态。
+- URL 路由单元测试。
+- 设备内 yt-dlp 媒体分析和 FFmpeg 音视频合并。
+- 最佳画质、最高 1080p、最高 720p 三档格式选择。
+- WorkManager 网络约束、前台下载通知、进度、取消与失败恢复入口。
+- Android 10+ 通过 MediaStore 保存到 `Movies/Video Get`。
+- X 解析失败时通过 FxTwitter 获取公开媒体直链，并从 `video.twimg.com` 直接下载。
+
+尚未完成：
+
+- 多任务下载队列、显式重试策略与 Room 历史记录。
+- Android 9 的公共媒体库兼容写入；当前回退到 App 专属 Movies 目录。
+- 真机端到端、包体积、ABI、许可证和发布构建验收。
+
+当前构建基线为 AGP 9.4.0、Gradle 9.6.0、Compose BOM 2025.12.00、`compileSdk 36`、`targetSdk 36`、`minSdk 26`。Compose 1.12 起要求 `compileSdk 37`，因此 API 36 构建暂时固定使用 Compose 1.10 系列。AGP 9 默认使用内置 Kotlin，因此工程不再应用旧的 `org.jetbrains.kotlin.android` 插件。
+
 ## 目标
 
 开发本地运行的 Android App，支持从系统分享菜单或手动粘贴 X、Instagram 链接，完成分析、格式选择、下载、后处理和文件保存。第一版不依赖云服务器。
