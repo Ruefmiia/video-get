@@ -40,7 +40,10 @@ object MediaAnalyzer {
                 ThreadsWebViewAnalyzer.analyze(context, url)
             }
         }
-        return withContext(Dispatchers.IO) { analyzeWithYtDlp(url) }
+        return withContext(Dispatchers.IO) {
+            if (isYouTubeUrl(url)) YouTubeEngineManager.prepare(context)
+            analyzeWithYtDlp(url)
+        }
     }
 
     private fun analyzeWithYtDlp(url: String): AnalyzedMedia {
@@ -50,12 +53,13 @@ object MediaAnalyzer {
             addOption("--socket-timeout", "45")
             addOption("--retries", "3")
             addOption("--extractor-retries", "3")
+            if (isYouTubeUrl(url)) addOption("--remote-components", "ejs:github")
         }
         return try {
             val info = YoutubeDL.getInstance().getInfo(request)
             AnalyzedMedia(
                 title = info.title?.takeIf(String::isNotBlank) ?: "未命名视频",
-                formats = defaultFormats,
+                formats = if (isYouTubeUrl(url)) YouTubeFormats.formats else defaultFormats,
             )
         } catch (primaryError: Exception) {
             if (!isXUrl(url)) throw primaryError
@@ -123,6 +127,12 @@ object MediaAnalyzer {
 
     private fun isThreadsUrl(url: String): Boolean = runCatching {
         URI(url).host.lowercase() in setOf("threads.com", "www.threads.com", "threads.net", "www.threads.net")
+    }.getOrDefault(false)
+
+    private fun isYouTubeUrl(url: String): Boolean = runCatching {
+        URI(url).host.lowercase() in setOf(
+            "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be",
+        )
     }.getOrDefault(false)
 
     private fun bitrateFromId(id: String) = id.substringAfter("fx_", "0").toLongOrNull() ?: 0

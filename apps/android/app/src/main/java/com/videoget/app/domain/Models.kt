@@ -4,6 +4,7 @@ enum class PlatformId {
     X,
     INSTAGRAM,
     THREADS,
+    YOUTUBE,
 }
 
 data class UrlMatch(

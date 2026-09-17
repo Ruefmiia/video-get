@@ -2,12 +2,24 @@
 param(
     [string]$KeystorePath = (Join-Path $env:USERPROFILE ".android\video-get-internal.jks"),
     [string]$KeyAlias = "video-get-internal",
-    [string]$VersionName = "0.1.0"
+    [string]$VersionName
 )
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
 $KeystorePath = [System.IO.Path]::GetFullPath($KeystorePath)
+
+if ([string]::IsNullOrWhiteSpace($VersionName)) {
+    $appBuildFile = Join-Path $ProjectRoot "app\build.gradle.kts"
+    $versionMatch = [regex]::Match(
+        (Get-Content -LiteralPath $appBuildFile -Raw),
+        'versionName\s*=\s*"([^"]+)"'
+    )
+    if (-not $versionMatch.Success) {
+        throw "Could not determine versionName from $appBuildFile"
+    }
+    $VersionName = $versionMatch.Groups[1].Value
+}
 
 if (-not (Test-Path -LiteralPath $KeystorePath -PathType Leaf)) {
     throw "Keystore not found: $KeystorePath"

@@ -151,7 +151,7 @@ private fun HomeScreen(
                             minLines = 1,
                             maxLines = 2,
                             label = { Text("视频链接") },
-                            placeholder = { Text("粘贴 X、Instagram 或 Threads 链接") },
+                            placeholder = { Text("粘贴 YouTube、X、Instagram 或 Threads 链接") },
                             leadingIcon = {
                                 Icon(Icons.Outlined.Link, contentDescription = null)
                             },

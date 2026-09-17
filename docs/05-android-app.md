@@ -6,7 +6,7 @@
 
 - Kotlin + Jetpack Compose 单模块工程和 Gradle Wrapper。
 - 手动输入、由用户主动触发的剪贴板粘贴、系统 `ACTION_SEND` 文本分享入口。
-- X、Instagram、Threads URL 严格识别、规范化与分享跟踪参数清理。
+- YouTube、X、Instagram、Threads URL 严格识别、规范化与分享跟踪参数清理。
 - Threads 使用原生 Kotlin 页面解析器，不进入通用 yt-dlp 下载器。
 - 浅色/深色主题、边到边安全区、48dp 触控目标、文本与颜色共同表达状态。
 - URL 路由单元测试。
@@ -26,6 +26,7 @@
 
 - 多任务下载队列、显式重试策略与 Room 历史记录。
 - Android 9 的公共媒体库兼容写入；当前回退到 App 专属 Movies 目录。
+- YouTube 普通视频、短链接和 Shorts 单视频支持已进入 0.2.0；签名 Release 覆盖安装和公开短链接真机下载已通过。
 - 仅通过 JavaScript 动态注入目标的 Threads `xmt` 页面仍需完善已布局 WebView、懒加载与资源诊断。
 - 仅提供分离 DASH 音视频轨道的帖子仍需下载与 FFmpeg 合并支持。
 - 更完整的真机平台矩阵、许可证和 Release/AAB 发布构建验收。

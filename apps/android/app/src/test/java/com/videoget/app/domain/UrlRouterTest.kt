@@ -30,6 +30,31 @@ class UrlRouterTest {
     }
 
     @Test
+    fun normalizesYouTubeVideoLinks() {
+        val id = "Pv61yEcOqpw"
+        listOf(
+            "https://www.youtube.com/watch?v=$id&list=PL123&feature=share",
+            "https://m.youtube.com/watch?v=$id&si=tracking",
+            "https://youtu.be/$id?si=tracking",
+            "https://www.youtube.com/shorts/$id?feature=share",
+        ).forEach { rawUrl ->
+            val match = UrlRouter.match(rawUrl)
+            assertEquals(PlatformId.YOUTUBE, match?.platform)
+            assertTrue(match?.available ?: false)
+            assertEquals("https://www.youtube.com/watch?v=$id", match?.canonicalUrl)
+        }
+    }
+
+    @Test
+    fun rejectsUnsupportedYouTubePagesAndInvalidIds() {
+        assertNull(UrlRouter.match("https://www.youtube.com/playlist?list=PL123"))
+        assertNull(UrlRouter.match("https://www.youtube.com/@creator"))
+        assertNull(UrlRouter.match("https://www.youtube.com/live/Pv61yEcOqpw"))
+        assertNull(UrlRouter.match("https://youtu.be/too-short"))
+        assertNull(UrlRouter.match("https://youtube.com.example/watch?v=Pv61yEcOqpw"))
+    }
+
+    @Test
     fun rejectsLookalikesAndUnsupportedPaths() {
         assertNull(UrlRouter.match("https://x.com.example/user/status/123"))
         assertNull(UrlRouter.match("https://instagram.com/accounts/login"))

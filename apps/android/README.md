@@ -1,6 +1,6 @@
 # Video Get Android
 
-阶段 5 的原生 Android 客户端。里程碑 5.3 已完成设备本地 yt-dlp/FFmpeg 下载主流程、公开 Threads 解析、Android 14+ 前台下载适配及内部 Release 0.1.0 验证。里程碑 5.4 的易用性优化已完成，并通过签名 Release 覆盖安装与真机测试，详见[易用性优化方案](../../docs/08-android-usability-plan.md)。
+阶段 5 的原生 Android 客户端。里程碑 5.3、5.4 已完成并通过真机验证。里程碑 5.5 已实现 YouTube 单视频第一版，0.2.0 已通过签名 Release 覆盖安装与公开视频真机下载验证，详见[YouTube 开发方案](../../docs/09-android-youtube-plan.md)。
 
 ## 环境
 
@@ -45,7 +45,7 @@ app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 
 ## 当前范围
 
-- 支持粘贴或通过系统分享接收一个 X、Instagram 或 Threads 链接。
+- 支持粘贴或通过系统分享接收一个 YouTube、X、Instagram 或 Threads 链接。
 - 在设备本地分析标题并提供最佳、1080p、720p 三档选择。
 - 使用 WorkManager 前台任务下载、合并音视频、显示进度并支持取消。
 - 粘贴链接后自动分析，支持键盘分析、整行选择清晰度和分阶段失败重试。
@@ -53,6 +53,7 @@ app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 - Android 10+ 保存到系统媒体库 `Movies/Video Get`。
 - X 的 yt-dlp 解析失败时，可使用 FxTwitter 获取公开帖子媒体直链；实际视频仍直接从 `video.twimg.com` 下载。
 - 支持公开 Threads 单视频和多视频帖，含 `threads.com`、`threads.net`、`/t/` 与分享链接。
+- 支持 YouTube 普通视频、`youtu.be` 短链接和 Shorts；不支持播放列表、直播或登录内容。
 - Threads 解析严格匹配目标 shortcode，不会选取页面中的回复或推荐视频。
 - 不读取 Cookie，不绕过登录、DRM 或访问控制。
 - 不需要云服务器；下载、FFmpeg 后处理和 Threads 解析均在设备本地执行。

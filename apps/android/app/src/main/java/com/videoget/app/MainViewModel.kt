@@ -49,7 +49,7 @@ data class HomeUiState(
     val selectedFormatId: String = "best",
     val progress: Int = 0,
     val progressLabel: String = "",
-    val message: String = "粘贴链接，或从 X、Instagram、Threads 分享到 Video Get。",
+    val message: String = "粘贴链接，或从 YouTube、X、Instagram、Threads 分享到 Video Get。",
     val failureStage: FailureStage? = null,
     val completedDownload: CompletedDownload? = null,
 )
@@ -111,7 +111,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             match == null -> uiState = HomeUiState(
                 input = value,
                 state = AnalyzeState.INVALID,
-                message = "请输入有效的 X、Instagram 或 Threads 帖子链接。",
+                message = "请输入有效的 YouTube、X、Instagram 或 Threads 视频链接。",
                 failureStage = FailureStage.ANALYZE,
             )
             !match.available -> uiState = HomeUiState(
@@ -253,7 +253,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     WorkInfo.State.RUNNING -> uiState.copy(
                         state = AnalyzeState.DOWNLOADING,
                         progress = progress,
-                        progressLabel = "正在下载",
+                        progressLabel = info.progress.getString(DownloadWorker.KEY_PROGRESS_LABEL)
+                            ?: "正在下载",
                         message = "正在下载：$progress%",
                     )
                     WorkInfo.State.SUCCEEDED -> {
@@ -318,6 +319,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             text.contains("Unsupported URL", true) -> "该链接暂不受支持"
             text.contains("I/O operation on closed file", true) -> "媒体服务连接被中断，请检查手机网络或代理后重试"
             text.contains("timed out", true) -> "媒体服务连接超时，请检查手机网络或代理后重试"
+            text.contains("private video", true) -> "这是私密视频，当前版本无法下载"
+            text.contains("members-only", true) || text.contains("join this channel", true) ->
+                "这是会员专享内容，当前版本无法下载"
+            text.contains("age", true) && text.contains("sign in", true) ->
+                "该视频需要登录或年龄验证，当前版本不读取账号信息"
+            text.contains("not available in your country", true) || text.contains("geo", true) ->
+                "该视频在当前地区不可用"
+            text.contains("live event", true) || text.contains("is live", true) ->
+                "当前版本暂不支持直播下载"
+            text.contains("HTTP Error 403", true) || text.contains("PO Token", true) ->
+                "YouTube 暂时拒绝了媒体请求，请更新 App 或稍后重试"
+            text.contains("JavaScript runtime", true) || text.contains("js-runtimes", true) ->
+                "YouTube 解析组件不可用，请更新 App"
+            text.contains("解析组件更新失败", true) -> text.take(240)
             text.contains("login", true) || text.contains("cookies", true) -> "内容需要登录，当前版本不读取账号 Cookie"
             text.isBlank() -> "无法获取媒体信息，请检查网络后重试"
             else -> text.take(240)

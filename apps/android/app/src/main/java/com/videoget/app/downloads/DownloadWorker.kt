@@ -66,7 +66,7 @@ class DownloadWorker(
                     .build(),
             )
         } catch (error: Exception) {
-            Result.failure(failureData(error.message ?: "下载失败", failureStage))
+            Result.failure(failureData(finalErrorMessage(error), failureStage))
         } finally {
             DownloadRequestStore.delete(applicationContext, requestId)
         }
@@ -75,6 +75,7 @@ class DownloadWorker(
     private fun downloadWithYtDlp(url: String, selector: String, workDir: File, title: String): File {
         YoutubeDL.getInstance().init(applicationContext)
         FFmpeg.getInstance().init(applicationContext)
+        if (isYouTubeUrl(url)) YouTubeEngineManager.prepare(applicationContext)
         val request = YoutubeDLRequest(url).apply {
             addOption("--no-playlist")
             addOption("--newline")
@@ -85,12 +86,21 @@ class DownloadWorker(
             addOption("--extractor-retries", "3")
             addOption("--retry-sleep", "http:linear=2::10")
             addOption("--merge-output-format", "mp4")
+            if (isYouTubeUrl(url)) addOption("--remote-components", "ejs:github")
             addOption("-f", selector)
             addOption("-o", File(workDir, "video-get-%(id)s.%(ext)s").absolutePath)
         }
-        YoutubeDL.getInstance().execute(request, processId) { progress, eta, _ ->
+        YoutubeDL.getInstance().execute(request, processId) { progress, eta, output ->
             if (isStopped) YoutubeDL.getInstance().destroyProcessById(processId)
-            reportProgress(progress.toInt().coerceIn(0, 100), eta, title)
+            val processing = output.contains("[Merger]", ignoreCase = true) ||
+                output.contains("Merging formats", ignoreCase = true) ||
+                output.contains("Post-process", ignoreCase = true)
+            reportProgress(
+                percent = if (processing) 99 else progress.toInt().coerceIn(0, 100),
+                eta = eta,
+                title = title,
+                stageLabel = if (processing) "正在合并音视频" else "正在下载",
+            )
         }
         return workDir.listFiles()
             ?.filter { it.isFile && it.extension.lowercase() in MEDIA_EXTENSIONS }
@@ -141,10 +151,28 @@ class DownloadWorker(
         }
     }
 
-    private fun reportProgress(percent: Int, eta: Long, title: String) {
-        setProgressAsync(Data.Builder().putInt(KEY_PROGRESS, percent).putLong(KEY_ETA, eta).build())
-        notifications.notify(NOTIFICATION_ID, notification(percent, title.ifBlank { "正在下载" }))
+    private fun reportProgress(
+        percent: Int,
+        eta: Long,
+        title: String,
+        stageLabel: String = "正在下载",
+    ) {
+        setProgressAsync(
+            Data.Builder()
+                .putInt(KEY_PROGRESS, percent)
+                .putLong(KEY_ETA, eta)
+                .putString(KEY_PROGRESS_LABEL, stageLabel)
+                .build(),
+        )
+        val notificationText = title.ifBlank { stageLabel }
+        notifications.notify(NOTIFICATION_ID, notification(percent, notificationText))
     }
+
+    private fun isYouTubeUrl(url: String): Boolean = runCatching {
+        URI(url).host.lowercase() in setOf(
+            "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be",
+        )
+    }.getOrDefault(false)
 
     private fun publish(source: File): PublishedMedia {
         val mimeType = if (source.extension.equals("webm", true)) "video/webm" else "video/mp4"
@@ -245,6 +273,13 @@ class DownloadWorker(
         .putString(KEY_FAILURE_STAGE, stage)
         .build()
 
+    private fun finalErrorMessage(error: Exception): String {
+        val message = error.message.orEmpty().trim()
+        val finalError = message.substringAfterLast("ERROR:", missingDelimiterValue = "").trim()
+        val lastLine = message.lineSequence().lastOrNull { it.isNotBlank() }?.trim()
+        return finalError.ifBlank { lastLine ?: "下载失败" }
+    }
+
     private data class PublishedMedia(
         val uri: String,
         val displayName: String,
@@ -258,6 +293,7 @@ class DownloadWorker(
         const val KEY_DIRECT_URL = "direct_url"
         const val KEY_TITLE = "title"
         const val KEY_PROGRESS = "progress"
+        const val KEY_PROGRESS_LABEL = "progress_label"
         const val KEY_ETA = "eta"
         const val KEY_OUTPUT_URI = "output_uri"
         const val KEY_OUTPUT_NAME = "output_name"
