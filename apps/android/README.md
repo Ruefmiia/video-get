@@ -19,9 +19,33 @@ cd apps/android
 .\gradlew.bat assembleDebug
 ```
 
+默认构建只生成现代 Android 真机使用的 `arm64-v8a` APK：
+
+```text
+app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+```
+
+日常功能更新仅需构建并发布该版本。需要重新生成其他 CPU 架构的兼容版本时，显式传入 ABI 列表：
+
+```powershell
+.\gradlew.bat assembleDebug "-PvideoGetAbis=arm64-v8a,armeabi-v7a,x86,x86_64"
+```
+
+该命令分别生成四个 APK，不生成包含全部原生库的通用 APK。`armeabi-v7a` 用于较老的 32 位 ARM 手机，`x86` 和 `x86_64` 主要用于模拟器或少量特殊设备；这些兼容版本可固定保留，只有出现明确需求时才随主版本更新。
+
+## 内部 Release 构建
+
+首次发布前，在仓库外创建并备份专用 JKS。随后运行：
+
+```powershell
+.\build-internal-release.ps1
+```
+
+脚本会安全提示输入密码、运行单元测试、构建默认 `arm64-v8a` Release APK、使用 Android SDK 的 `apksigner` 验证签名，并将 APK、SHA-256 与第三方声明整理到 `release-output/<版本>/`。密码只在当前脚本进程中传给 Gradle，脚本结束时清除；JKS、密码和 `release-output` 均不得提交到 Git。
+
 ## 当前范围
 
-- 支持粘贴或通过系统分享接收一个 X/Instagram 链接。
+- 支持粘贴或通过系统分享接收一个 X、Instagram 或 Threads 链接。
 - 在设备本地分析标题并提供最佳、1080p、720p 三档选择。
 - 使用 WorkManager 前台任务下载、合并音视频、显示进度并支持取消。
 - Android 10+ 保存到系统媒体库 `Movies/Video Get`。

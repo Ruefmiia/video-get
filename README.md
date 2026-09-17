@@ -15,23 +15,25 @@
 - [阶段 4：X 与 Instagram 端到端支持](docs/04-x-instagram-e2e.md)
 - [阶段 5：Android App](docs/05-android-app.md)
 - [测试、发布与验收策略](docs/06-testing-and-release.md)
+- [项目现状、各端软件、目录结构与路线图](docs/07-project-status.md)
 
 ## 目录结构
 
 ```text
 video-get/
 ├─ apps/
-│  ├─ browser-extension/
-│  ├─ desktop-companion/
-│  └─ android/
-├─ services/
-│  └─ downloader-api/
-├─ contracts/
-│  └─ openapi/
-├─ tests/
-│  └─ platform-fixtures/
-└─ docs/
+│  ├─ android/                    # Android 原生客户端
+│  ├─ browser-extension/          # Chrome/Edge 扩展
+│  └─ desktop-companion/          # Windows 桌面辅助程序与安装器
+├─ services/downloader-api/       # FastAPI 下载核心
+├─ contracts/openapi/             # API 契约
+├─ design-system/video-get/       # 各端 UI 设计规范
+├─ docs/                          # 架构、阶段与状态文档
+├─ scripts/                       # 维护脚本
+└─ pyproject.toml                 # Python 项目与质量配置
 ```
+
+详细模块树、各端职责和生成物边界见[项目现状文档](docs/07-project-status.md)。
 
 ## 第一版范围
 
@@ -56,7 +58,16 @@ video-get/
 
 ## 当前开发状态
 
-阶段 1 至阶段 4 已完成，阶段 5 Android App 已完成本地下载主流程，当前进入稳定性和发布准备。项目包含 FastAPI 下载服务、可构建 Chrome/Edge 的 Manifest V3 扩展、带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包。Android 端可接收分享或手动粘贴链接，使用设备内 yt-dlp/FFmpeg 下载 X 与 Instagram，并通过原生 Kotlin 解析器下载公开 Threads 视频。私密、删除或登录后可见的 Threads 内容不受支持。
+阶段 1 至阶段 3 已完成开发版；阶段 4 的 X/Instagram 桌面闭环基本完成；阶段 5 Android App 已完成本地下载主流程，当前进入稳定性和发布准备。项目包含 FastAPI 下载服务、Chrome/Edge Manifest V3 扩展、带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包。Android 端可接收分享或手动粘贴链接，使用设备内 yt-dlp/FFmpeg 下载 X 与 Instagram，并通过原生 Kotlin 解析器下载公开 Threads 视频。桌面链路暂不下载 Threads；私密、删除或登录后可见的 Threads 内容不受支持。
+
+| 软件 | 当前状态 | X | Instagram | Threads |
+|---|---|---:|---:|---:|
+| FastAPI 下载核心 | 核心完成 | 支持 | 支持 | 计划中 |
+| Chrome/Edge 扩展 | 0.1.0 开发版完成 | 通过本地 API | 通过本地 API | 仅识别和提示 |
+| Windows 桌面辅助程序 | 0.1.0 安装回归通过 | 管理桌面链路 | 管理桌面链路 | 暂不支持 |
+| Android App | 核心完成、发布稳定化中 | 支持 | 支持 | 实验支持公开内容 |
+
+更完整的阶段进度、验证结果和待办事项见[项目现状文档](docs/07-project-status.md)。
 
 ### Android 开发
 
@@ -66,6 +77,14 @@ video-get/
 .\gradlew.bat test
 .\gradlew.bat assembleDebug
 ```
+
+Android 默认只生成 `arm64-v8a` 分架构 APK，作为日常更新版本。需要生成其余兼容架构时执行：
+
+```powershell
+.\gradlew.bat assembleDebug "-PvideoGetAbis=arm64-v8a,armeabi-v7a,x86,x86_64"
+```
+
+详细产物路径和架构维护策略见 `apps/android/README.md`。
 
 Android 第一版采用设备本地处理，不要求部署云服务器。当前工程已接入 `youtubedl-android 0.18.1` 的 yt-dlp 与 FFmpeg 模块；公开分发前必须完成 GPL-3.0、传递依赖、对应源码和应用发布方式评审。
 

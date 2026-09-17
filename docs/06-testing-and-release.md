@@ -1,5 +1,7 @@
 # 测试、发布与验收策略
 
+> 最近验证：2026-09-17。Python/桌面侧 62 项测试通过，综合覆盖率 84.59%；浏览器扩展 20 项测试、TypeScript 类型检查和 Chrome/Edge 构建通过；Android JVM 单元测试、默认 `arm64-v8a` 及四 ABI 独立 APK 构建通过。真实平台仍需在每次发布前单独冒烟测试。
+
 ## 1. 测试层次
 
 ### 单元测试
@@ -34,7 +36,7 @@
 
 ## 2. 固定回归样本
 
-`tests/platform-fixtures` 可以保存：
+后续新增 `tests/platform-fixtures` 目录时，可以保存：
 
 - 脱敏后的 yt-dlp JSON
 - URL 规范化输入/输出

@@ -22,3 +22,6 @@ captures/
 *.db
 *.db-shm
 *.db-wal
+*.jks
+*.keystore
+apps/android/release-output/

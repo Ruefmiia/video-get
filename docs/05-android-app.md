@@ -18,6 +18,8 @@
 - Threads 支持正式帖子、`/t/`、`/share/`、轮播、嵌套/引用媒体和基础 DASH 视频地址。
 - 下载参数通过 App 私有缓存传递给 WorkManager，避免超长媒体 URL 超出输入数据上限。
 - Android 14+ 前台下载显式使用 `dataSync` 服务类型。
+- 黑白灰 Material 3 界面、精简首页、快速清空操作和自适应内容宽度。
+- APK 按 ABI 独立输出；默认日常构建仅生成 `arm64-v8a`。
 
 尚未完成：
 
@@ -25,13 +27,13 @@
 - Android 9 的公共媒体库兼容写入；当前回退到 App 专属 Movies 目录。
 - 仅通过 JavaScript 动态注入目标的 Threads `xmt` 页面仍需完善已布局 WebView、懒加载与资源诊断。
 - 仅提供分离 DASH 音视频轨道的帖子仍需下载与 FFmpeg 合并支持。
-- 真机端到端、包体积、ABI、许可证和发布构建验收。
+- 更完整的真机平台矩阵、许可证和 Release/AAB 发布构建验收。
 
 当前构建基线为 AGP 9.4.0、Gradle 9.6.0、Compose BOM 2025.12.00、`compileSdk 36`、`targetSdk 36`、`minSdk 26`。Compose 1.12 起要求 `compileSdk 37`，因此 API 36 构建暂时固定使用 Compose 1.10 系列。AGP 9 默认使用内置 Kotlin，因此工程不再应用旧的 `org.jetbrains.kotlin.android` 插件。
 
 ## 目标
 
-开发本地运行的 Android App，支持从系统分享菜单或手动粘贴 X、Instagram 链接，完成分析、格式选择、下载、后处理和文件保存。第一版不依赖云服务器。
+开发本地运行的 Android App，支持从系统分享菜单或手动粘贴 X、Instagram、Threads 链接，完成分析、格式选择、下载、后处理和文件保存。第一版不依赖云服务器。
 
 ## 技术选型
 
@@ -88,7 +90,7 @@ apps/android/
 
 ### 分享菜单
 
-1. 用户在 X 或 Instagram 选择“分享”。
+1. 用户在 X、Instagram 或 Threads 选择“分享”。
 2. 选择 Video Get。
 3. App 提取分享文本中的唯一 URL。
 4. 展示分析页，不能自动开始下载。
@@ -114,9 +116,11 @@ apps/android/
 
 yt-dlp、Python、FFmpeg 会显著增加包体积：
 
-- 采用 Android App Bundle。
-- 按 `arm64-v8a`、`armeabi-v7a`、`x86_64` 评估实际需求。
-- 真机发布优先 `arm64-v8a`；模拟器测试保留 `x86_64`。
+- APK 按 CPU ABI 独立构建，不生成同时携带全部原生库的通用 APK。
+- 默认构建和日常更新仅生成 `arm64-v8a`，以覆盖现代 Android 真机。
+- `armeabi-v7a`、`x86` 和 `x86_64` 保留一个兼容版本，只有出现明确设备需求时才重新构建和更新。
+- 应用商店发布采用 Android App Bundle，由商店按设备 ABI 下发对应原生库。
+- 2026-09-17 Debug 实测：`arm64-v8a` 71.42 MiB、`armeabi-v7a` 65.06 MiB、`x86` 70.09 MiB、`x86_64` 74.28 MiB。
 - 不把不需要的编码器、协议和字体打入 FFmpeg。
 - 构建产物必须生成第三方组件与许可证清单。
 

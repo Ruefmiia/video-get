@@ -3,6 +3,33 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val supportedAbis = setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+val requestedAbis = providers.gradleProperty("videoGetAbis")
+    .orElse("arm64-v8a")
+    .get()
+    .split(',')
+    .map(String::trim)
+    .filter(String::isNotEmpty)
+    .toSet()
+
+require(requestedAbis.isNotEmpty()) { "videoGetAbis must contain at least one ABI" }
+require(supportedAbis.containsAll(requestedAbis)) {
+    "Unsupported ABI in videoGetAbis. Supported values: ${supportedAbis.joinToString()}"
+}
+
+val releaseSigningValues = mapOf(
+    "storePath" to System.getenv("VIDEO_GET_KEYSTORE_PATH"),
+    "storePassword" to System.getenv("VIDEO_GET_KEYSTORE_PASSWORD"),
+    "keyAlias" to System.getenv("VIDEO_GET_KEY_ALIAS"),
+    "keyPassword" to System.getenv("VIDEO_GET_KEY_PASSWORD"),
+)
+val hasAnyReleaseSigningValue = releaseSigningValues.values.any { !it.isNullOrBlank() }
+val hasCompleteReleaseSigning = releaseSigningValues.values.all { !it.isNullOrBlank() }
+
+require(!hasAnyReleaseSigningValue || hasCompleteReleaseSigning) {
+    "Release signing is only partially configured. Set all VIDEO_GET_KEYSTORE_* variables."
+}
+
 android {
     namespace = "com.videoget.app"
     compileSdk = 36
@@ -17,8 +44,36 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasCompleteReleaseSigning) {
+            create("internalRelease") {
+                storeFile = file(releaseSigningValues.getValue("storePath")!!)
+                storePassword = releaseSigningValues.getValue("storePassword")
+                keyAlias = releaseSigningValues.getValue("keyAlias")
+                keyPassword = releaseSigningValues.getValue("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (hasCompleteReleaseSigning) {
+                signingConfig = signingConfigs.getByName("internalRelease")
+            }
+        }
+    }
+
     packaging {
         jniLibs.useLegacyPackaging = true
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include(*requestedAbis.toTypedArray())
+            isUniversalApk = false
+        }
     }
 
     buildFeatures {

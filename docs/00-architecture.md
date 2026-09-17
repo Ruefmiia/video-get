@@ -23,7 +23,8 @@ Android App
     ├─ shared API semantics
     ├─ local yt-dlp wrapper
     ├─ local FFmpeg
-    └─ Room database
+    ├─ WorkManager request cache
+    └─ Room history database (planned)
 ```
 
 浏览器端不能直接执行 Python、yt-dlp 或原生 FFmpeg，因此需要桌面辅助程序。Android 端不启动 FastAPI，而是复用相同的领域模型、错误码和任务状态语义。
@@ -44,7 +45,7 @@ Android App
 
 ### Android App
 
-负责分享链接接收、移动端任务管理、前台下载通知和文件保存。平台识别与任务模型应与桌面端一致，但执行器是 Android 本地实现。
+负责分享链接接收、移动端任务管理、前台下载通知和文件保存。平台识别与任务模型应与桌面端一致，但执行器是 Android 本地实现。当前任务参数保存在 App 私有缓存中；Room 历史数据库仍属于后续工作。
 
 ## 3. Provider 契约
 
