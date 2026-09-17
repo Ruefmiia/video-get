@@ -1,6 +1,7 @@
 package com.videoget.app.downloads
 
 import android.content.Context
+import com.videoget.app.instagram.InstagramSession
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.yausername.youtubedl_android.YoutubeDL
@@ -22,6 +23,13 @@ data class DownloadFormat(
     val label: String,
     val selector: String,
     val directUrl: String? = null,
+    val items: List<DownloadItem> = emptyList(),
+)
+
+data class DownloadItem(
+    val id: String,
+    val selector: String,
+    val directUrl: String? = null,
 )
 
 object MediaAnalyzer {
@@ -41,34 +49,56 @@ object MediaAnalyzer {
             }
         }
         return withContext(Dispatchers.IO) {
+            if (isXUrl(url)) {
+                return@withContext runCatching { analyzeXFallback(url) }
+                    .getOrElse { fallbackError ->
+                        runCatching { analyzeWithYtDlp(context, url) }
+                            .getOrElse { primaryError ->
+                                primaryError.addSuppressed(fallbackError)
+                                throw primaryError
+                            }
+                    }
+            }
+            if (isInstagramUrl(url) && InstagramSession.isLoggedIn()) {
+                return@withContext runCatching { InstagramAnalyzer.analyze(context, url) }
+                    .getOrElse { instagramError ->
+                        runCatching { analyzeWithYtDlp(context, url) }
+                            .getOrElse {
+                                instagramError.addSuppressed(it)
+                                throw instagramError
+                            }
+                    }
+            }
             if (isYouTubeUrl(url)) YouTubeEngineManager.prepare(context)
-            analyzeWithYtDlp(url)
+            analyzeWithYtDlp(context, url)
         }
     }
 
-    private fun analyzeWithYtDlp(url: String): AnalyzedMedia {
+    private fun analyzeWithYtDlp(context: Context, url: String): AnalyzedMedia {
+        if (isInstagramUrl(url) && InstagramSession.isLoggedIn()) {
+            return InstagramSession.withYtDlpCookies(context) { cookieFile, userAgent ->
+                analyzeWithYtDlp(url, cookieFile.absolutePath, userAgent)
+            }
+        }
+        return analyzeWithYtDlp(url, null, null)
+    }
+
+    private fun analyzeWithYtDlp(url: String, cookiePath: String?, userAgent: String?): AnalyzedMedia {
         val request = YoutubeDLRequest(url).apply {
             addOption("--no-playlist")
             addOption("--no-warnings")
             addOption("--socket-timeout", "45")
             addOption("--retries", "3")
             addOption("--extractor-retries", "3")
+            if (cookiePath != null) addOption("--cookies", cookiePath)
+            if (userAgent != null) addOption("--user-agent", userAgent)
             if (isYouTubeUrl(url)) addOption("--remote-components", "ejs:github")
         }
-        return try {
-            val info = YoutubeDL.getInstance().getInfo(request)
-            AnalyzedMedia(
-                title = info.title?.takeIf(String::isNotBlank) ?: "未命名视频",
-                formats = if (isYouTubeUrl(url)) YouTubeFormats.formats else defaultFormats,
-            )
-        } catch (primaryError: Exception) {
-            if (!isXUrl(url)) throw primaryError
-            runCatching { analyzeXFallback(url) }
-                .getOrElse { fallbackError ->
-                    primaryError.addSuppressed(fallbackError)
-                    throw primaryError
-                }
-        }
+        val info = YoutubeDL.getInstance().getInfo(request)
+        return AnalyzedMedia(
+            title = info.title?.takeIf(String::isNotBlank) ?: "未命名视频",
+            formats = if (isYouTubeUrl(url)) YouTubeFormats.formats else defaultFormats,
+        )
     }
 
     internal fun parseFxTwitter(json: String): AnalyzedMedia {
@@ -77,16 +107,26 @@ object MediaAnalyzer {
         val tweet = root.path("tweet")
         val videos = tweet.path("media").path("videos")
         if (!videos.isArray || videos.isEmpty) error("帖子中没有可下载的视频")
-        val formats = videos.flatMap { video ->
-            video.path("formats").filter { it.path("container").asText() == "mp4" }.mapNotNull(::toDirectFormat)
-        }.distinctBy { it.directUrl }.sortedByDescending { bitrateFromId(it.id) }
-        if (formats.isEmpty()) error("帖子中没有 MP4 视频格式")
+        val variantsByVideo = videos.mapIndexedNotNull { videoIndex, video ->
+            video.path("formats")
+                .filter { it.path("container").asText() == "mp4" }
+                .mapNotNull { toDirectVariant(it, videoIndex) }
+                .distinctBy(FxVariant::url)
+                .sortedByDescending(FxVariant::bitrate)
+                .takeIf(List<FxVariant>::isNotEmpty)
+        }
+        if (variantsByVideo.isEmpty()) error("帖子中没有 MP4 视频格式")
+        val formats = fxDownloadPresets(variantsByVideo)
         val author = tweet.path("author").path("name").asText().trim()
         val text = tweet.path("text").asText().replace(Regex("\\s+"), " ").trim().take(72)
         return AnalyzedMedia(
             title = listOf(author, text).filter(String::isNotBlank).joinToString(" — ").ifBlank { "X 视频" },
             formats = formats,
-            warning = "X 原始解析失败，已使用 FxTwitter 获取公开媒体直链。",
+            warning = if (variantsByVideo.size > 1) {
+                "该帖子包含 ${variantsByVideo.size} 个视频，将按顺序下载全部视频。"
+            } else {
+                "已获取 X 公开视频媒体。"
+            },
         )
     }
 
@@ -107,18 +147,42 @@ object MediaAnalyzer {
         }
     }
 
-    private fun toDirectFormat(node: JsonNode): DownloadFormat? {
+    private fun toDirectVariant(node: JsonNode, videoIndex: Int): FxVariant? {
         val url = node.path("url").asText().takeIf { it.startsWith("https://video.twimg.com/") } ?: return null
         val bitrate = node.path("bitrate").asLong(0)
         val dimensions = Regex("/(\\d+)x(\\d+)/").find(url)?.destructured?.let { (width, height) ->
-            "${width}×${height}"
-        } ?: "MP4"
-        return DownloadFormat(
-            id = "fx_$bitrate",
-            label = "$dimensions · ${formatBitrate(bitrate)}",
-            selector = "direct",
-            directUrl = url,
+            width.toInt() to height.toInt()
+        }
+        return FxVariant(
+            id = "x_${videoIndex + 1}_$bitrate",
+            url = url,
+            bitrate = bitrate,
+            resolution = dimensions?.let { minOf(it.first, it.second) } ?: 0,
         )
+    }
+
+    private fun fxDownloadPresets(videos: List<List<FxVariant>>): List<DownloadFormat> {
+        fun preset(id: String, label: String, maximumResolution: Int?): DownloadFormat {
+            val selected = videos.map { variants ->
+                val candidates = maximumResolution?.let { cap -> variants.filter { it.resolution in 1..cap } }
+                    .orEmpty()
+                (candidates.ifEmpty { variants }).maxBy(FxVariant::bitrate)
+            }
+            val suffix = if (videos.size > 1) "（全部 ${videos.size} 个视频）" else ""
+            return DownloadFormat(
+                id = id,
+                label = label + suffix,
+                selector = "direct",
+                items = selected.map { variant ->
+                    DownloadItem(variant.id, "direct", variant.url)
+                },
+            )
+        }
+        return listOf(
+            preset("fx_all_best", "最佳画质", null),
+            preset("fx_all_1080", "最高 1080p", 1080),
+            preset("fx_all_720", "最高 720p", 720),
+        ).distinctBy { preset -> preset.items.joinToString("|") { it.directUrl.orEmpty() } }
     }
 
     private fun isXUrl(url: String): Boolean = runCatching {
@@ -135,7 +199,14 @@ object MediaAnalyzer {
         )
     }.getOrDefault(false)
 
-    private fun bitrateFromId(id: String) = id.substringAfter("fx_", "0").toLongOrNull() ?: 0
+    private fun isInstagramUrl(url: String): Boolean = runCatching {
+        URI(url).host.lowercase() in setOf("instagram.com", "www.instagram.com")
+    }.getOrDefault(false)
 
-    private fun formatBitrate(value: Long): String = if (value > 0) "%.1f Mbps".format(value / 1_000_000.0) else "自适应"
+    private data class FxVariant(
+        val id: String,
+        val url: String,
+        val bitrate: Long,
+        val resolution: Int,
+    )
 }

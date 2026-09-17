@@ -22,6 +22,8 @@ import com.videoget.app.downloads.DownloadSessionStore
 import com.videoget.app.downloads.DownloadWorker
 import com.videoget.app.downloads.MediaAnalyzer
 import com.videoget.app.downloads.StoredDownloadRequest
+import com.videoget.app.downloads.StoredDownloadItem
+import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
@@ -33,11 +35,16 @@ enum class FailureStage {
     SAVE,
 }
 
-data class CompletedDownload(
+data class CompletedMedia(
     val contentUri: String,
     val displayName: String,
     val relativePath: String,
     val mimeType: String,
+)
+
+data class CompletedDownload(
+    val items: List<CompletedMedia>,
+    val failedCount: Int = 0,
 )
 
 data class HomeUiState(
@@ -55,6 +62,7 @@ data class HomeUiState(
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
+    private val mapper = ObjectMapper()
     private val workManager = WorkManager.getInstance(application)
     private var activeWorkId: UUID? = null
     private var workObserver: Job? = null
@@ -171,6 +179,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     selector = format.selector,
                     directUrl = format.directUrl,
                     title = state.title,
+                    items = format.items.ifEmpty {
+                        listOf(
+                            com.videoget.app.downloads.DownloadItem(
+                                id = format.id,
+                                selector = format.selector,
+                                directUrl = format.directUrl,
+                            ),
+                        )
+                    }.map { item ->
+                        StoredDownloadItem(item.id, item.selector, item.directUrl)
+                    },
                 ),
             )
             try {
@@ -258,23 +277,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         message = "正在下载：$progress%",
                     )
                     WorkInfo.State.SUCCEEDED -> {
-                        val completed = info.outputData.getString(DownloadWorker.KEY_OUTPUT_URI)?.let { uri ->
-                            CompletedDownload(
-                                contentUri = uri,
-                                displayName = info.outputData.getString(DownloadWorker.KEY_OUTPUT_NAME)
-                                    ?: "video-get.mp4",
-                                relativePath = info.outputData.getString(DownloadWorker.KEY_OUTPUT_RELATIVE_PATH)
-                                    ?: "Movies/Video Get",
-                                mimeType = info.outputData.getString(DownloadWorker.KEY_OUTPUT_MIME_TYPE)
-                                    ?: "video/mp4",
-                            )
-                        }
+                        val completed = parseCompletedDownload(info.outputData)
                         finishWork(id)
                         uiState.copy(
                             state = AnalyzeState.COMPLETED,
                             progress = 100,
                             progressLabel = "下载完成",
-                            message = "视频已保存到 ${completed?.relativePath ?: "Movies/Video Get"}。",
+                            message = completed?.let {
+                                val images = it.items.count { media -> media.mimeType.startsWith("image/") }
+                                val videos = it.items.size - images
+                                val summary = buildList {
+                                    if (images > 0) add("$images 张图片")
+                                    if (videos > 0) add("$videos 个视频")
+                                }.joinToString("、")
+                                when {
+                                    it.failedCount > 0 -> "已保存$summary，${it.failedCount} 个失败。"
+                                    it.items.size > 1 -> "已保存$summary。"
+                                    else -> "媒体已保存到 ${it.items.firstOrNull()?.relativePath ?: "Video Get"}。"
+                                }
+                            } ?: "下载完成。",
                             failureStage = null,
                             completedDownload = completed,
                         )
@@ -313,6 +334,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (activeWorkId == id) activeWorkId = null
     }
 
+    private fun parseCompletedDownload(data: Data): CompletedDownload? {
+        val json = data.getString(DownloadWorker.KEY_OUTPUT_ITEMS)
+        val items = runCatching {
+            mapper.readTree(json).takeIf { it.isArray }?.map { item ->
+                CompletedMedia(
+                    contentUri = item.path("uri").asText(),
+                    displayName = item.path("displayName").asText("video-get.mp4"),
+                    relativePath = item.path("relativePath").asText("Movies/Video Get"),
+                    mimeType = item.path("mimeType").asText("video/mp4"),
+                )
+            }.orEmpty().filter { it.contentUri.isNotBlank() }
+        }.getOrDefault(emptyList())
+        if (items.isNotEmpty()) {
+            return CompletedDownload(items, data.getInt(DownloadWorker.KEY_FAILED_COUNT, 0))
+        }
+        val legacyUri = data.getString(DownloadWorker.KEY_OUTPUT_URI) ?: return null
+        return CompletedDownload(
+            items = listOf(
+                CompletedMedia(
+                    contentUri = legacyUri,
+                    displayName = data.getString(DownloadWorker.KEY_OUTPUT_NAME) ?: "video-get.mp4",
+                    relativePath = data.getString(DownloadWorker.KEY_OUTPUT_RELATIVE_PATH) ?: "Movies/Video Get",
+                    mimeType = data.getString(DownloadWorker.KEY_OUTPUT_MIME_TYPE) ?: "video/mp4",
+                ),
+            ),
+        )
+    }
+
     private fun friendlyError(error: Throwable): String {
         val text = error.message.orEmpty()
         return when {
@@ -333,7 +382,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             text.contains("JavaScript runtime", true) || text.contains("js-runtimes", true) ->
                 "YouTube 解析组件不可用，请更新 App"
             text.contains("解析组件更新失败", true) -> text.take(240)
-            text.contains("login", true) || text.contains("cookies", true) -> "内容需要登录，当前版本不读取账号 Cookie"
+            text.contains("login", true) || text.contains("cookies", true) ->
+                "内容需要登录；Instagram 内容请先连接 Instagram 后重试"
             text.isBlank() -> "无法获取媒体信息，请检查网络后重试"
             else -> text.take(240)
         }

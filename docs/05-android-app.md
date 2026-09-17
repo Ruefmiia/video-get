@@ -1,12 +1,15 @@
 # 阶段 5：Android App
 
-## 当前实现（里程碑 5.3、5.4 已完成）
+## 当前实现（首个正式内部版本 1.0.0）
 
 已完成：
 
 - Kotlin + Jetpack Compose 单模块工程和 Gradle Wrapper。
 - 手动输入、由用户主动触发的剪贴板粘贴、系统 `ACTION_SEND` 文本分享入口。
 - YouTube、X、Instagram、Threads URL 严格识别、规范化与分享跟踪参数清理。
+- Instagram 支持独立 App 内 WebView 登录；分析和后台下载均可使用当前会话，临时 Cookie 文件调用后删除。
+- Instagram 支持单图、轮播多图和图文/视频混合帖子；图片保存到 `Pictures/Video Get`，视频保存到 `Movies/Video Get`。
+- 黑白猫咪简笔画自适应启动图标，适配 Android 圆形和圆角方形遮罩。
 - Threads 使用原生 Kotlin 页面解析器，不进入通用 yt-dlp 下载器。
 - 浅色/深色主题、边到边安全区、48dp 触控目标、文本与颜色共同表达状态。
 - URL 路由单元测试。
@@ -14,7 +17,7 @@
 - 最佳画质、最高 1080p、最高 720p 三档格式选择。
 - WorkManager 网络约束、前台下载通知、进度、取消与失败恢复入口。
 - Android 10+ 通过 MediaStore 保存到 `Movies/Video Get`。
-- X 解析失败时通过 FxTwitter 获取公开媒体直链，并从 `video.twimg.com` 直接下载。
+- X 通过 FxTwitter 获取公开媒体元数据并从 `video.twimg.com` 直接下载；多视频帖子一次选择画质后按帖子顺序下载全部视频，部分失败不阻止其余视频保存。
 - Threads 支持正式帖子、`/t/`、`/share/`、轮播、嵌套/引用媒体和基础 DASH 视频地址。
 - 下载参数通过 App 私有缓存传递给 WorkManager，避免超长媒体 URL 超出输入数据上限。
 - Android 14+ 前台下载显式使用 `dataSync` 服务类型。
@@ -156,7 +159,8 @@ Android 当前规则：
 - 仅申请联网、通知及实际需要的媒体写入能力。
 - 优先使用 MediaStore/SAF，避免申请广泛文件访问权限。
 - 不请求通讯录、位置、设备标识等无关权限。
-- 第一版不读取其他 App Cookie，也不要求用户提交账号密码。
+- 不读取其他 App Cookie；Instagram 登录凭据只输入到官方网页，App 仅使用 WebView 保存的站点会话。
+- Android 系统备份关闭，避免 Instagram WebView 会话被备份迁移。
 - 崩溃日志和分析数据默认不包含下载 URL；启用遥测前应取得明确同意。
 
 ## 完成标准
@@ -169,3 +173,7 @@ Android 当前规则：
 - 不需要云服务器即可完成全流程。
 - 公开 Threads 单视频与轮播视频可分析和下载，错误帖子不会回退到页面中的其他媒体。
 - 发布构建通过许可证、权限、包体积和目标 API 检查。
+- Instagram 登录后可在分析与后台下载阶段使用同一会话；退出连接后 Cookie 被清除。
+- Instagram 单图、轮播多图及混合帖子按原顺序保存，图片和视频分别进入正确的系统媒体库。
+
+Instagram 登录的完整流程、安全边界与真机验收项见 [Android Instagram App 内登录方案](10-android-instagram-login-plan.md)。

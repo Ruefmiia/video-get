@@ -5,11 +5,11 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.core.content.FileProvider
-import com.videoget.app.CompletedDownload
+import com.videoget.app.CompletedMedia
 import java.io.File
 
 object MediaActions {
-    fun openVideo(context: Context, media: CompletedDownload): Boolean = runCatching {
+    fun openVideo(context: Context, media: CompletedMedia): Boolean = runCatching {
         val uri = shareableUri(context, media.contentUri)
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, media.mimeType)
@@ -18,10 +18,10 @@ object MediaActions {
         context.startActivity(intent)
     }.isSuccess
 
-    fun openLocation(context: Context): Boolean {
-        val directoryUri = Uri.parse(
-            "content://com.android.externalstorage.documents/document/primary%3AMovies%2FVideo%20Get",
-        )
+    fun openLocation(context: Context, relativePath: String): Boolean {
+        val normalized = relativePath.trim('/').ifBlank { "Movies/Video Get" }
+        val documentId = Uri.encode("primary:$normalized")
+        val directoryUri = Uri.parse("content://com.android.externalstorage.documents/document/$documentId")
         val viewDirectory = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(directoryUri, DocumentsContract.Document.MIME_TYPE_DIR)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -31,7 +31,7 @@ object MediaActions {
             return true
         } catch (_: Exception) {
             val picker = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                type = "video/*"
+                type = "*/*"
                 addCategory(Intent.CATEGORY_OPENABLE)
                 putExtra(DocumentsContract.EXTRA_INITIAL_URI, directoryUri)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

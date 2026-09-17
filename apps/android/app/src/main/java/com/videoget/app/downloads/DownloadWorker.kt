@@ -20,6 +20,8 @@ import androidx.work.WorkerParameters
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.videoget.app.instagram.InstagramSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -33,6 +35,7 @@ class DownloadWorker(
 ) : CoroutineWorker(appContext, params) {
     private val processId = id.toString()
     private val notifications = appContext.getSystemService(NotificationManager::class.java)
+    private val mapper = ObjectMapper()
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val requestId = inputData.getString(KEY_REQUEST_ID)
@@ -48,21 +51,45 @@ class DownloadWorker(
             val workDir = File(applicationContext.cacheDir, "downloads/$processId").apply { mkdirs() }
             createChannel()
             setForeground(foreground(0, request.title.ifBlank { "准备下载" }))
-            val media = if (request.directUrl != null) {
-                downloadDirect(request.directUrl, workDir, request.title)
-            } else {
-                downloadWithYtDlp(request.url, request.selector, workDir, request.title)
+            val items = request.items.ifEmpty {
+                listOf(StoredDownloadItem("legacy", request.selector, request.directUrl))
             }
-            failureStage = FAILURE_STAGE_SAVE
-            val saved = publish(media)
+            val savedItems = mutableListOf<PublishedMedia>()
+            val errors = mutableListOf<String>()
+            items.forEachIndexed { index, item ->
+                if (isStopped) error("下载已取消")
+                val itemDir = File(workDir, "item-${index + 1}").apply { mkdirs() }
+                try {
+                    failureStage = FAILURE_STAGE_DOWNLOAD
+                    val media = if (item.directUrl != null) {
+                        downloadDirect(item.directUrl, itemDir, request.title, index, items.size)
+                    } else {
+                        downloadWithYtDlp(request.url, item.selector, itemDir, request.title, index, items.size)
+                    }
+                    failureStage = FAILURE_STAGE_SAVE
+                    savedItems += publish(media)
+                } catch (error: Exception) {
+                    if (isStopped) throw error
+                    errors += finalErrorMessage(error)
+                }
+            }
             workDir.deleteRecursively()
-            notifications.notify(NOTIFICATION_ID, notification(100, "下载完成", saved))
+            if (savedItems.isEmpty()) error(errors.firstOrNull() ?: "下载失败")
+            val first = savedItems.first()
+            val completionText = if (errors.isEmpty()) {
+                if (savedItems.size > 1) "${savedItems.size} 个视频下载完成" else "下载完成"
+            } else {
+                "成功 ${savedItems.size} 个，失败 ${errors.size} 个"
+            }
+            notifications.notify(NOTIFICATION_ID, notification(100, completionText, first))
             Result.success(
                 Data.Builder()
-                    .putString(KEY_OUTPUT_URI, saved.uri)
-                    .putString(KEY_OUTPUT_NAME, saved.displayName)
-                    .putString(KEY_OUTPUT_RELATIVE_PATH, saved.relativePath)
-                    .putString(KEY_OUTPUT_MIME_TYPE, saved.mimeType)
+                    .putString(KEY_OUTPUT_URI, first.uri)
+                    .putString(KEY_OUTPUT_NAME, first.displayName)
+                    .putString(KEY_OUTPUT_RELATIVE_PATH, first.relativePath)
+                    .putString(KEY_OUTPUT_MIME_TYPE, first.mimeType)
+                    .putString(KEY_OUTPUT_ITEMS, mapper.writeValueAsString(savedItems))
+                    .putInt(KEY_FAILED_COUNT, errors.size)
                     .build(),
             )
         } catch (error: Exception) {
@@ -72,10 +99,35 @@ class DownloadWorker(
         }
     }
 
-    private fun downloadWithYtDlp(url: String, selector: String, workDir: File, title: String): File {
+    private fun downloadWithYtDlp(
+        url: String,
+        selector: String,
+        workDir: File,
+        title: String,
+        itemIndex: Int,
+        itemCount: Int,
+    ): File {
         YoutubeDL.getInstance().init(applicationContext)
         FFmpeg.getInstance().init(applicationContext)
         if (isYouTubeUrl(url)) YouTubeEngineManager.prepare(applicationContext)
+        if (isInstagramUrl(url) && InstagramSession.isLoggedIn()) {
+            return InstagramSession.withYtDlpCookies(applicationContext) { cookieFile, userAgent ->
+                executeYtDlp(url, selector, workDir, title, itemIndex, itemCount, cookieFile.absolutePath, userAgent)
+            }
+        }
+        return executeYtDlp(url, selector, workDir, title, itemIndex, itemCount, null, null)
+    }
+
+    private fun executeYtDlp(
+        url: String,
+        selector: String,
+        workDir: File,
+        title: String,
+        itemIndex: Int,
+        itemCount: Int,
+        cookiePath: String?,
+        userAgent: String?,
+    ): File {
         val request = YoutubeDLRequest(url).apply {
             addOption("--no-playlist")
             addOption("--newline")
@@ -86,6 +138,8 @@ class DownloadWorker(
             addOption("--extractor-retries", "3")
             addOption("--retry-sleep", "http:linear=2::10")
             addOption("--merge-output-format", "mp4")
+            if (cookiePath != null) addOption("--cookies", cookiePath)
+            if (userAgent != null) addOption("--user-agent", userAgent)
             if (isYouTubeUrl(url)) addOption("--remote-components", "ejs:github")
             addOption("-f", selector)
             addOption("-o", File(workDir, "video-get-%(id)s.%(ext)s").absolutePath)
@@ -96,10 +150,10 @@ class DownloadWorker(
                 output.contains("Merging formats", ignoreCase = true) ||
                 output.contains("Post-process", ignoreCase = true)
             reportProgress(
-                percent = if (processing) 99 else progress.toInt().coerceIn(0, 100),
+                percent = overallProgress(itemIndex, itemCount, if (processing) 99 else progress.toInt()),
                 eta = eta,
                 title = title,
-                stageLabel = if (processing) "正在合并音视频" else "正在下载",
+                stageLabel = itemLabel(itemIndex, itemCount, if (processing) "正在合并音视频" else "正在下载"),
             )
         }
         return workDir.listFiles()
@@ -108,7 +162,13 @@ class DownloadWorker(
             ?: error("下载完成，但没有找到媒体文件")
     }
 
-    private fun downloadDirect(rawUrl: String, workDir: File, title: String): File {
+    private fun downloadDirect(
+        rawUrl: String,
+        workDir: File,
+        title: String,
+        itemIndex: Int,
+        itemCount: Int,
+    ): File {
         val uri = URI(rawUrl)
         val host = uri.host.lowercase()
         val allowedHost = host == "video.twimg.com" ||
@@ -117,7 +177,6 @@ class DownloadWorker(
         require(uri.scheme == "https" && allowedHost) {
             "拒绝非受信任媒体地址"
         }
-        val output = File(workDir, "video-get-${System.currentTimeMillis()}.mp4")
         val connection = URL(rawUrl).openConnection() as HttpURLConnection
         try {
             connection.instanceFollowRedirects = true
@@ -127,7 +186,9 @@ class DownloadWorker(
             if (host.endsWith("cdninstagram.com") || host.endsWith("fbcdn.net")) {
                 connection.setRequestProperty("Referer", "https://www.threads.com/")
             }
-            if (connection.responseCode !in 200..299) error("视频服务器 HTTP ${connection.responseCode}")
+            if (connection.responseCode !in 200..299) error("媒体服务器 HTTP ${connection.responseCode}")
+            val extension = extensionForContentType(connection.contentType, rawUrl)
+            val output = File(workDir, "video-get-${itemIndex + 1}-${System.currentTimeMillis()}.$extension")
             val total = connection.contentLengthLong
             connection.inputStream.use { input ->
                 output.outputStream().buffered().use { sink ->
@@ -140,11 +201,16 @@ class DownloadWorker(
                         sink.write(buffer, 0, count)
                         downloaded += count
                         val percent = if (total > 0) ((downloaded * 100) / total).toInt().coerceIn(0, 99) else 0
-                        reportProgress(percent, 0, title)
+                        reportProgress(
+                            overallProgress(itemIndex, itemCount, percent),
+                            0,
+                            title,
+                            itemLabel(itemIndex, itemCount, "正在下载"),
+                        )
                     }
                 }
             }
-            if (output.length() == 0L) error("视频服务器返回了空文件")
+            if (output.length() == 0L) error("媒体服务器返回了空文件")
             return output
         } finally {
             connection.disconnect()
@@ -168,16 +234,29 @@ class DownloadWorker(
         notifications.notify(NOTIFICATION_ID, notification(percent, notificationText))
     }
 
+    private fun overallProgress(itemIndex: Int, itemCount: Int, itemProgress: Int): Int =
+        (((itemIndex * 100) + itemProgress.coerceIn(0, 100)) / itemCount.coerceAtLeast(1))
+            .coerceIn(0, 99)
+
+    private fun itemLabel(itemIndex: Int, itemCount: Int, action: String): String =
+        if (itemCount > 1) "$action ${itemIndex + 1}/$itemCount" else action
+
     private fun isYouTubeUrl(url: String): Boolean = runCatching {
         URI(url).host.lowercase() in setOf(
             "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be",
         )
     }.getOrDefault(false)
 
+    private fun isInstagramUrl(url: String): Boolean = runCatching {
+        URI(url).host.lowercase() in setOf("instagram.com", "www.instagram.com")
+    }.getOrDefault(false)
+
     private fun publish(source: File): PublishedMedia {
-        val mimeType = if (source.extension.equals("webm", true)) "video/webm" else "video/mp4"
+        val mimeType = mimeType(source.extension)
+        val isImage = mimeType.startsWith("image/")
+        val directoryType = if (isImage) Environment.DIRECTORY_PICTURES else Environment.DIRECTORY_MOVIES
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            val moviesDir = applicationContext.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+            val moviesDir = applicationContext.getExternalFilesDir(directoryType)
                 ?: error("无法访问视频目录")
             val targetDir = File(moviesDir, "Video Get").apply { mkdirs() }
             val target = File(targetDir, source.name)
@@ -185,35 +264,57 @@ class DownloadWorker(
             return PublishedMedia(
                 uri = Uri.fromFile(target).toString(),
                 displayName = target.name,
-                relativePath = "Movies/Video Get",
+                relativePath = "${if (isImage) "Pictures" else "Movies"}/Video Get",
                 mimeType = mimeType,
             )
         }
         val values = ContentValues().apply {
-            put(MediaStore.Video.Media.DISPLAY_NAME, source.name)
-            put(MediaStore.Video.Media.MIME_TYPE, mimeType)
-            put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/Video Get")
-            put(MediaStore.Video.Media.IS_PENDING, 1)
+            put(MediaStore.MediaColumns.DISPLAY_NAME, source.name)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "$directoryType/Video Get")
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
         val resolver = applicationContext.contentResolver
-        val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+        val collection = if (isImage) MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        else MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        val uri = resolver.insert(collection, values)
             ?: error("无法在系统媒体库创建文件")
         try {
             resolver.openOutputStream(uri)?.use { output -> source.inputStream().use { it.copyTo(output) } }
                 ?: error("无法写入系统媒体库")
             values.clear()
-            values.put(MediaStore.Video.Media.IS_PENDING, 0)
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
             resolver.update(uri, values, null, null)
             return PublishedMedia(
                 uri = uri.toString(),
                 displayName = source.name,
-                relativePath = "Movies/Video Get",
+                relativePath = "${if (isImage) "Pictures" else "Movies"}/Video Get",
                 mimeType = mimeType,
             )
         } catch (error: Exception) {
             resolver.delete(uri, null, null)
             throw error
         }
+    }
+
+    private fun extensionForContentType(contentType: String?, rawUrl: String): String = when {
+        contentType?.contains("image/jpeg", true) == true -> "jpg"
+        contentType?.contains("image/png", true) == true -> "png"
+        contentType?.contains("image/webp", true) == true -> "webp"
+        contentType?.contains("image/avif", true) == true -> "avif"
+        contentType?.contains("video/webm", true) == true -> "webm"
+        else -> runCatching { URI(rawUrl).path.substringAfterLast('.').lowercase() }
+            .getOrNull()?.takeIf { it in setOf("jpg", "jpeg", "png", "webp", "avif", "mp4", "webm") }
+            ?: "mp4"
+    }
+
+    private fun mimeType(extension: String): String = when (extension.lowercase()) {
+        "jpg", "jpeg" -> "image/jpeg"
+        "png" -> "image/png"
+        "webp" -> "image/webp"
+        "avif" -> "image/avif"
+        "webm" -> "video/webm"
+        else -> "video/mp4"
     }
 
     private fun createChannel() {
@@ -299,6 +400,8 @@ class DownloadWorker(
         const val KEY_OUTPUT_NAME = "output_name"
         const val KEY_OUTPUT_RELATIVE_PATH = "output_relative_path"
         const val KEY_OUTPUT_MIME_TYPE = "output_mime_type"
+        const val KEY_OUTPUT_ITEMS = "output_items"
+        const val KEY_FAILED_COUNT = "failed_count"
         const val KEY_ERROR = "error"
         const val KEY_FAILURE_STAGE = "failure_stage"
         const val KEY_REQUEST_ID = "request_id"

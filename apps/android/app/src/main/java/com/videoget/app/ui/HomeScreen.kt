@@ -1,6 +1,7 @@
 package com.videoget.app.ui
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -49,6 +50,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -66,9 +71,18 @@ import com.videoget.app.HomeUiState
 import com.videoget.app.MainViewModel
 import com.videoget.app.domain.AnalyzeState
 import com.videoget.app.downloads.DownloadFormat
+import com.videoget.app.instagram.InstagramLoginActivity
+import com.videoget.app.instagram.InstagramSession
 
 @Composable
 fun VideoGetApp(viewModel: MainViewModel = viewModel()) {
+    val context = LocalContext.current
+    var instagramConnected by remember { mutableStateOf(InstagramSession.isLoggedIn()) }
+    val instagramLogin = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        instagramConnected = InstagramSession.isLoggedIn()
+    }
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) {}
@@ -89,6 +103,14 @@ fun VideoGetApp(viewModel: MainViewModel = viewModel()) {
             onDownload = viewModel::download,
             onRetry = viewModel::retry,
             onCancel = viewModel::cancelDownload,
+            instagramConnected = instagramConnected,
+            onConnectInstagram = {
+                instagramLogin.launch(Intent(context, InstagramLoginActivity::class.java))
+            },
+            onDisconnectInstagram = {
+                InstagramSession.clear()
+                instagramConnected = false
+            },
         )
     }
 }
@@ -104,6 +126,9 @@ private fun HomeScreen(
     onDownload: () -> Unit,
     onRetry: () -> Unit,
     onCancel: () -> Unit,
+    instagramConnected: Boolean,
+    onConnectInstagram: () -> Unit,
+    onDisconnectInstagram: () -> Unit,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -118,6 +143,11 @@ private fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Video Get") },
+                actions = {
+                    TextButton(onClick = if (instagramConnected) onDisconnectInstagram else onConnectInstagram) {
+                        Text(if (instagramConnected) "Instagram 已连接" else "连接 Instagram")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),
@@ -233,13 +263,15 @@ private fun HomeScreen(
                             onRetry = onRetry,
                             onCancel = onCancel,
                             onOpenVideo = {
-                                val media = state.completedDownload ?: return@DownloadTaskCard
+                                val media = state.completedDownload?.items?.firstOrNull() ?: return@DownloadTaskCard
                                 if (!MediaActions.openVideo(context, media)) {
-                                    Toast.makeText(context, "未找到可播放该视频的应用", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "未找到可打开该媒体的应用", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             onOpenLocation = {
-                                if (!MediaActions.openLocation(context)) {
+                                val path = state.completedDownload?.items?.firstOrNull()?.relativePath
+                                    ?: "Movies/Video Get"
+                                if (!MediaActions.openLocation(context, path)) {
                                     Toast.makeText(context, "未找到可打开下载目录的文件应用", Toast.LENGTH_SHORT).show()
                                 }
                             },
@@ -342,7 +374,8 @@ private fun ReadyActions(
     ) {
         Icon(Icons.Outlined.Download, contentDescription = null)
         Spacer(Modifier.width(8.dp))
-        Text("下载视频")
+        val itemCount = formats.firstOrNull { it.id == selectedId }?.items?.size ?: 1
+        Text(if (itemCount > 1) "下载全部 $itemCount 项" else "下载媒体")
     }
 }
 
@@ -384,19 +417,30 @@ private fun CompletedActions(
     onOpenLocation: () -> Unit,
     onDownloadAgain: () -> Unit,
 ) {
-    val media = state.completedDownload
+    val completed = state.completedDownload
+    val media = completed?.items?.firstOrNull()
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Outlined.CheckCircle, contentDescription = null)
         Spacer(Modifier.width(8.dp))
         Text("下载完成", style = MaterialTheme.typography.titleMedium)
     }
     if (media != null) {
-        Text(media.displayName, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            if (completed.items.size > 1) "已保存 ${completed.items.size} 项媒体" else media.displayName,
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Text(
             media.relativePath,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if ((completed.failedCount) > 0) {
+            Text(
+                "另有 ${completed.failedCount} 个视频下载失败",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Button(
             onClick = onOpenVideo,
             modifier = Modifier
@@ -405,7 +449,7 @@ private fun CompletedActions(
         ) {
             Icon(Icons.Outlined.PlayCircle, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("打开视频")
+            Text(if (media.mimeType.startsWith("image/")) "打开图片" else "打开视频")
         }
     }
     OutlinedButton(

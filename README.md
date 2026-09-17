@@ -60,14 +60,14 @@ video-get/
 
 ## 当前开发状态
 
-阶段 1 至阶段 3 已完成开发版；阶段 4 的 X/Instagram 桌面闭环基本完成；阶段 5 Android App 已完成 5.4 易用性优化并通过真机测试。5.5 YouTube 第一版代码、Debug 自动化、签名 Release 覆盖安装和公开视频真机下载均已通过。项目包含 FastAPI 下载服务、Chrome/Edge Manifest V3 扩展、带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包。Android 端可接收分享或手动粘贴链接，使用设备内 yt-dlp/FFmpeg 下载 YouTube、X 与 Instagram，并通过原生 Kotlin 解析器下载公开 Threads 视频。桌面链路暂不下载 Threads；受登录或访问控制保护的内容不受支持。
+阶段 1 至阶段 4 的主要目标已经完成。Android App 已整理为首个正式内部版本 `1.0.0`，具备黑白猫咪启动图标、分享/粘贴、本地分析、后台下载、完成后操作及任务恢复。Android 端使用设备内 yt-dlp/FFmpeg 下载 YouTube、X 与 Instagram，并通过原生 Kotlin 解析器下载公开 Threads 视频；Instagram 支持 App 内官方网页登录，以及单图、轮播和图文/视频混合帖子。桌面链路暂不下载 Threads；其他受登录或访问控制保护的内容不受支持。
 
 | 软件 | 当前状态 | YouTube | X | Instagram | Threads |
 |---|---|---:|---:|---:|---:|
 | FastAPI 下载核心 | 核心完成 | 暂不支持 | 支持 | 支持 | 计划中 |
 | Chrome/Edge 扩展 | 0.1.0 开发版完成 | 暂不支持 | 通过本地 API | 通过本地 API | 仅识别和提示 |
 | Windows 桌面辅助程序 | 0.1.0 安装回归通过 | 暂不支持 | 管理桌面链路 | 管理桌面链路 | 暂不支持 |
-| Android App | 0.2.0 第一版已通过真机验证 | 公开单视频已验证 | 支持 | 支持 | 实验支持公开内容 |
+| Android App | 1.0.0 首个正式内部版本 | 公开单视频已验证 | 支持单/多视频 | 支持图片、轮播、混合媒体和 Reel | 实验支持公开内容 |
 
 更完整的阶段进度、验证结果和待办事项见[项目现状文档](docs/07-project-status.md)。
 

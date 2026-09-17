@@ -1,6 +1,6 @@
 # Video Get Android
 
-阶段 5 的原生 Android 客户端。里程碑 5.3、5.4 已完成并通过真机验证。里程碑 5.5 已实现 YouTube 单视频第一版，0.2.0 已通过签名 Release 覆盖安装与公开视频真机下载验证，详见[YouTube 开发方案](../../docs/09-android-youtube-plan.md)。
+阶段 5 的原生 Android 客户端。当前版本为首个正式内部版本 `1.0.0`，包含 YouTube 单视频、X 多视频、Instagram App 内登录与图片/视频媒体，以及公开 Threads 下载。详见[YouTube 开发方案](../../docs/09-android-youtube-plan.md)和 [Instagram App 内登录方案](../../docs/10-android-instagram-login-plan.md)。
 
 ## 环境
 
@@ -51,18 +51,21 @@ app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 - 粘贴链接后自动分析，支持键盘分析、整行选择清晰度和分阶段失败重试。
 - 下载完成后可直接打开视频、查看保存位置或再次下载；App 重建后可恢复当前下载任务。
 - Android 10+ 保存到系统媒体库 `Movies/Video Get`。
-- X 的 yt-dlp 解析失败时，可使用 FxTwitter 获取公开帖子媒体直链；实际视频仍直接从 `video.twimg.com` 下载。
+- X 使用 FxTwitter 获取公开帖子媒体元数据，以识别并顺序下载多视频帖；FxTwitter 不可用时回退到设备内 yt-dlp。实际视频仍直接从 `video.twimg.com` 下载。
 - 支持公开 Threads 单视频和多视频帖，含 `threads.com`、`threads.net`、`/t/` 与分享链接。
 - 支持 YouTube 普通视频、`youtu.be` 短链接和 Shorts；不支持播放列表、直播或登录内容。
+- Instagram 可在 App 内打开官方登录页建立独立会话；分析和后台下载均使用当前会话，临时 Cookie 文件在调用后删除。
+- Instagram 支持单图、轮播多图及图文/视频混合帖子；图片保存到 `Pictures/Video Get`，视频保存到 `Movies/Video Get`。
 - Threads 解析严格匹配目标 shortcode，不会选取页面中的回复或推荐视频。
-- 不读取 Cookie，不绕过登录、DRM 或访问控制。
+- 不读取 Chrome 或 Instagram App 的 Cookie，不上传凭据，也不绕过 DRM 或访问控制。
 - 不需要云服务器；下载、FFmpeg 后处理和 Threads 解析均在设备本地执行。
+- 使用黑白猫咪简笔画自适应启动图标，兼容圆形和圆角方形桌面遮罩。
 
 当前使用 `youtubedl-android 0.18.1` 的 library 与 ffmpeg 模块。分发 APK 前必须遵循 GPL-3.0，并随发行物提供相应源码和许可证信息，详见 `THIRD_PARTY_NOTICES.md`。
 
-## X 回退解析与隐私
+## X 媒体解析与隐私
 
-默认先使用设备内 yt-dlp。仅当公开 X 帖子解析失败时，App 才会请求 `api.fxtwitter.com`，请求内容包含公开帖子路径（用户名和帖子 ID）。FxTwitter 只用于获取媒体元数据；视频字节由手机直接从 X 的 `video.twimg.com` 下载，不经过 Video Get 服务器。此回退依赖第三方服务的可用性与隐私政策。
+分析公开 X 帖子时，App 会请求 `api.fxtwitter.com`，请求内容包含公开帖子路径（用户名和帖子 ID），以保留帖子中每个视频的边界和清晰度信息。FxTwitter 只用于获取媒体元数据；视频字节由手机直接从 X 的 `video.twimg.com` 下载，不经过 Video Get 或 FxTwitter 服务器。FxTwitter 不可用时回退到设备内 yt-dlp。此功能依赖第三方服务的可用性与隐私政策。
 
 ## Threads 解析边界
 

@@ -8,8 +8,10 @@
 
     <application
         android:name=".VideoGetApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
         android:label="Video Get"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.VideoGet">
         <activity
@@ -26,6 +28,10 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".instagram.InstagramLoginActivity"
+            android:exported="false"
+            android:label="连接 Instagram" />
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"

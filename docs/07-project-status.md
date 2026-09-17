@@ -9,7 +9,7 @@ Video Get 已形成两条可独立使用的本地下载链路，不需要云服�
 1. Windows 桌面链路：Chrome/Edge 扩展连接本机 FastAPI 下载核心，由 Windows 桌面辅助程序负责安装、启动、令牌发现和 FFmpeg 管理。
 2. Android 链路：原生 App 在手机内运行 yt-dlp/FFmpeg，并使用独立 Kotlin 解析器支持公开 Threads 视频。
 
-阶段 1 至阶段 4 的主要开发目标已经完成。阶段 5 的 Android 核心下载流程、内部 Release 0.1.0 验证和里程碑 5.4 易用性优化均已完成；5.4 已通过 Debug 自动化、签名 Release 覆盖安装与真机测试。
+阶段 1 至阶段 4 的主要开发目标已经完成。阶段 5 Android App 已整理为首个正式内部版本 `1.0.0`；核心下载流程、易用性优化、专用签名与既有平台真机验证均已完成，新增 Instagram 图片/混合媒体能力进入正式版本回归矩阵。
 
 ## 2. 各端软件
 
@@ -18,7 +18,7 @@ Video Get 已形成两条可独立使用的本地下载链路，不需要云服�
 | 本地下载 API | `services/downloader-api` | Python、FastAPI、yt-dlp、FFmpeg、SQLite | 已完成核心功能 | X、Instagram 可用；Threads 为计划状态 |
 | Chrome/Edge 扩展 | `apps/browser-extension` | React、TypeScript、Vite、Manifest V3 | 已完成 0.1.0 开发版 | 通过本地 API 下载 X/Instagram；Threads 只显示计划状态 |
 | Windows 桌面辅助程序 | `apps/desktop-companion` | Python、Tk、PyInstaller、Inno Setup | 已完成 0.1.0 开发版与真实安装回归 | 管理本地 API、令牌、托盘、开机启动、Native Messaging 和内置 FFmpeg |
-| Android App | `apps/android` | Kotlin、Jetpack Compose、WorkManager、MediaStore、youtubedl-android | 0.2.0 第一版已通过 YouTube 真机下载验证 | YouTube、X、Instagram 与公开 Threads；YouTube/Threads 属实验支持 |
+| Android App | `apps/android` | Kotlin、Jetpack Compose、WorkManager、MediaStore、youtubedl-android | 1.0.0 首个正式内部版本 | YouTube、X、Instagram 图片/视频与公开 Threads；YouTube/Threads 属实验支持 |
 
 ### Windows 桌面链路
 
@@ -47,14 +47,14 @@ Windows 桌面辅助程序
         ▼
 URL 路由与媒体分析
         ├─ yt-dlp：X / Instagram
-        ├─ FxTwitter：公开 X 回退元数据
+        ├─ FxTwitter：公开 X 媒体元数据与多视频分组
         └─ Kotlin Threads 解析器：公开 Threads
         ▼
 WorkManager 前台下载 ── FFmpeg ── MediaStore
                                       └─ Movies/Video Get
 ```
 
-已验证 X 与公开 Threads 视频下载。当前未完成项包括多任务历史、Room 持久化、纯动态 Threads `xmt` 页面稳定化、分离 DASH 音视频合并及完整发布验收。
+已验证 X 与公开 Threads 视频下载。Instagram 已接入独立 WebView 登录会话、帖子媒体解析及图片/视频混合下载，当前等待真机单图、轮播、混合帖子和 Reel 验收。其他未完成项包括多任务历史、Room 持久化、纯动态 Threads `xmt` 页面稳定化、分离 DASH 音视频合并及完整发布验收。
 
 ## 3. 阶段进度
 
@@ -64,7 +64,7 @@ WorkManager 前台下载 ── FFmpeg ── MediaStore
 | 2. 浏览器扩展 | 已完成 | Chrome/Edge 共用 MV3 源码、分析、格式选择、下载、进度、取消、重试 | 发布打包与商店审核准备 |
 | 3. Windows 辅助程序 | 已完成开发版 | PyInstaller EXE、托盘、Native Messaging、Inno Setup、内置 FFmpeg | 代码签名、升级机制、干净环境发布验收 |
 | 4. X/Instagram 闭环 | 基本完成 | X/Instagram 规范化、格式令牌、多媒体选择、错误分类 | 扩大真实平台回归样本，重点验证 Instagram 网络环境 |
-| 5. Android App | 5.5 第一版已通过真机验证 | 本地分析下载、通知、MediaStore、X 回退、Threads、YouTube 单视频、黑白灰 UI、ABI 拆包、专用签名、完成后操作、错误重试、任务恢复 | 扩充 Shorts/1080p 回归样本，再处理历史/队列和 Threads/DASH 稳定性 |
+| 5. Android App | 1.0.0 正式内部版本 | 本地分析下载、通知、MediaStore、X 多视频、Threads、YouTube 单视频、Instagram 登录与图片/混合媒体、黑白灰 UI、猫咪图标、ABI 拆包、专用签名、错误重试、任务恢复 | 扩充正式版本真机回归矩阵，继续提升 Threads/DASH 稳定性 |
 
 ## 4. Android ABI 与包体积策略
 
@@ -153,4 +153,5 @@ video-get/
 2. 持续验证 QuickJS、YouTube JS Challenge、音视频合并及常见错误映射。
 3. 完整历史和多任务队列继续后置，保持内部单任务界面简洁。
 4. 完善 Threads `xmt` 动态页面和 DASH 分离音视频合并。
-5. 建立 X、Instagram、Threads、YouTube 的固定授权回归样本与内部发布检查表。
+5. 真机验证 Instagram App 内登录、会话持久化、退出清除，以及单图、轮播、混合帖子和 Reel 下载。
+6. 建立 X、Instagram、Threads、YouTube 的固定授权回归样本与内部发布检查表。
