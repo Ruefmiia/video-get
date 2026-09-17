@@ -2,13 +2,17 @@ package com.videoget.app.downloads
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.app.NotificationCompat
+import androidx.core.content.FileProvider
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
@@ -32,6 +36,7 @@ class DownloadWorker(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val requestId = inputData.getString(KEY_REQUEST_ID)
+        var failureStage = FAILURE_STAGE_DOWNLOAD
         try {
             val request = requestId?.let { DownloadRequestStore.load(applicationContext, it) }
                 ?: StoredDownloadRequest(
@@ -48,12 +53,20 @@ class DownloadWorker(
             } else {
                 downloadWithYtDlp(request.url, request.selector, workDir, request.title)
             }
+            failureStage = FAILURE_STAGE_SAVE
             val saved = publish(media)
             workDir.deleteRecursively()
-            notifications.notify(NOTIFICATION_ID, notification(100, "下载完成"))
-            Result.success(Data.Builder().putString(KEY_OUTPUT, saved).build())
+            notifications.notify(NOTIFICATION_ID, notification(100, "下载完成", saved))
+            Result.success(
+                Data.Builder()
+                    .putString(KEY_OUTPUT_URI, saved.uri)
+                    .putString(KEY_OUTPUT_NAME, saved.displayName)
+                    .putString(KEY_OUTPUT_RELATIVE_PATH, saved.relativePath)
+                    .putString(KEY_OUTPUT_MIME_TYPE, saved.mimeType)
+                    .build(),
+            )
         } catch (error: Exception) {
-            Result.failure(failureData(error.message ?: "下载失败"))
+            Result.failure(failureData(error.message ?: "下载失败", failureStage))
         } finally {
             DownloadRequestStore.delete(applicationContext, requestId)
         }
@@ -133,17 +146,24 @@ class DownloadWorker(
         notifications.notify(NOTIFICATION_ID, notification(percent, title.ifBlank { "正在下载" }))
     }
 
-    private fun publish(source: File): String {
+    private fun publish(source: File): PublishedMedia {
+        val mimeType = if (source.extension.equals("webm", true)) "video/webm" else "video/mp4"
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            val targetDir = applicationContext.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+            val moviesDir = applicationContext.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
                 ?: error("无法访问视频目录")
+            val targetDir = File(moviesDir, "Video Get").apply { mkdirs() }
             val target = File(targetDir, source.name)
             source.copyTo(target, overwrite = true)
-            return target.absolutePath
+            return PublishedMedia(
+                uri = Uri.fromFile(target).toString(),
+                displayName = target.name,
+                relativePath = "Movies/Video Get",
+                mimeType = mimeType,
+            )
         }
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, source.name)
-            put(MediaStore.Video.Media.MIME_TYPE, if (source.extension.equals("webm", true)) "video/webm" else "video/mp4")
+            put(MediaStore.Video.Media.MIME_TYPE, mimeType)
             put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/Video Get")
             put(MediaStore.Video.Media.IS_PENDING, 1)
         }
@@ -156,7 +176,12 @@ class DownloadWorker(
             values.clear()
             values.put(MediaStore.Video.Media.IS_PENDING, 0)
             resolver.update(uri, values, null, null)
-            return uri.toString()
+            return PublishedMedia(
+                uri = uri.toString(),
+                displayName = source.name,
+                relativePath = "Movies/Video Get",
+                mimeType = mimeType,
+            )
         } catch (error: Exception) {
             resolver.delete(uri, null, null)
             throw error
@@ -175,16 +200,57 @@ class DownloadWorker(
         ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
     )
 
-    private fun notification(progress: Int, text: String) = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-        .setSmallIcon(android.R.drawable.stat_sys_download)
-        .setContentTitle("Video Get")
-        .setContentText(text)
-        .setOnlyAlertOnce(true)
-        .setOngoing(progress < 100)
-        .setProgress(100, progress, progress == 0)
+    private fun notification(progress: Int, text: String, saved: PublishedMedia? = null) =
+        NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle("Video Get")
+            .setContentText(text)
+            .setOnlyAlertOnce(true)
+            .setOngoing(progress < 100)
+            .setAutoCancel(progress >= 100)
+            .setProgress(100, progress, progress == 0)
+            .setContentIntent(contentIntent(saved))
+            .build()
+
+    private fun contentIntent(saved: PublishedMedia?): PendingIntent? {
+        val intent = if (saved != null) {
+            val uri = Uri.parse(saved.uri).let { parsed ->
+                if (parsed.scheme == "file") {
+                    FileProvider.getUriForFile(
+                        applicationContext,
+                        "${applicationContext.packageName}.files",
+                        File(requireNotNull(parsed.path)),
+                    )
+                } else {
+                    parsed
+                }
+            }
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, saved.mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        } else {
+            applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)
+        } ?: return null
+        return PendingIntent.getActivity(
+            applicationContext,
+            if (saved == null) 0 else 1,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun failureData(message: String, stage: String) = Data.Builder()
+        .putString(KEY_ERROR, message.take(500))
+        .putString(KEY_FAILURE_STAGE, stage)
         .build()
 
-    private fun failureData(message: String) = Data.Builder().putString(KEY_ERROR, message.take(500)).build()
+    private data class PublishedMedia(
+        val uri: String,
+        val displayName: String,
+        val relativePath: String,
+        val mimeType: String,
+    )
 
     companion object {
         const val KEY_URL = "url"
@@ -193,9 +259,16 @@ class DownloadWorker(
         const val KEY_TITLE = "title"
         const val KEY_PROGRESS = "progress"
         const val KEY_ETA = "eta"
-        const val KEY_OUTPUT = "output"
+        const val KEY_OUTPUT_URI = "output_uri"
+        const val KEY_OUTPUT_NAME = "output_name"
+        const val KEY_OUTPUT_RELATIVE_PATH = "output_relative_path"
+        const val KEY_OUTPUT_MIME_TYPE = "output_mime_type"
         const val KEY_ERROR = "error"
+        const val KEY_FAILURE_STAGE = "failure_stage"
         const val KEY_REQUEST_ID = "request_id"
+        const val ACTIVE_WORK_TAG = "video_get_active_download"
+        const val FAILURE_STAGE_DOWNLOAD = "download"
+        const val FAILURE_STAGE_SAVE = "save"
         private const val CHANNEL_ID = "video_downloads"
         private const val NOTIFICATION_ID = 17382
         private val MEDIA_EXTENSIONS = setOf("mp4", "mkv", "webm", "mov")

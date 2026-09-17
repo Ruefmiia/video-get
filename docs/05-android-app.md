@@ -1,6 +1,6 @@
 # 阶段 5：Android App
 
-## 当前实现（里程碑 5.3）
+## 当前实现（里程碑 5.3、5.4 已完成）
 
 已完成：
 
@@ -20,6 +20,7 @@
 - Android 14+ 前台下载显式使用 `dataSync` 服务类型。
 - 黑白灰 Material 3 界面、精简首页、快速清空操作和自适应内容宽度。
 - APK 按 ABI 独立输出；默认日常构建仅生成 `arm64-v8a`。
+- 内部 Release 0.1.0 已完成专用签名、全新安装、同签名覆盖安装、X/Threads 下载和崩溃日志检查。
 
 尚未完成：
 
@@ -28,6 +29,8 @@
 - 仅通过 JavaScript 动态注入目标的 Threads `xmt` 页面仍需完善已布局 WebView、懒加载与资源诊断。
 - 仅提供分离 DASH 音视频轨道的帖子仍需下载与 FFmpeg 合并支持。
 - 更完整的真机平台矩阵、许可证和 Release/AAB 发布构建验收。
+
+里程碑 5.4 易用性优化已完成，包括：用户主动粘贴后自动分析、紧凑 URL 输入、整行格式选择、状态去重、错误恢复动作、下载完成后打开视频/查看位置，以及 App 重建后恢复当前 WorkManager 任务。Debug 自动化、签名 Release 覆盖安装与真机测试均已通过。完整实施结果和验收标准见[里程碑 5.4 方案](08-android-usability-plan.md)。
 
 当前构建基线为 AGP 9.4.0、Gradle 9.6.0、Compose BOM 2025.12.00、`compileSdk 36`、`targetSdk 36`、`minSdk 26`。Compose 1.12 起要求 `compileSdk 37`，因此 API 36 构建暂时固定使用 Compose 1.10 系列。AGP 9 默认使用内置 Kotlin，因此工程不再应用旧的 `org.jetbrains.kotlin.android` 插件。
 

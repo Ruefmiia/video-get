@@ -15,15 +15,30 @@ import androidx.work.WorkManager
 import com.videoget.app.domain.AnalyzeState
 import com.videoget.app.domain.UrlMatch
 import com.videoget.app.domain.UrlRouter
+import com.videoget.app.downloads.ActiveDownloadSession
 import com.videoget.app.downloads.DownloadFormat
-import com.videoget.app.downloads.DownloadWorker
 import com.videoget.app.downloads.DownloadRequestStore
+import com.videoget.app.downloads.DownloadSessionStore
+import com.videoget.app.downloads.DownloadWorker
 import com.videoget.app.downloads.MediaAnalyzer
 import com.videoget.app.downloads.StoredDownloadRequest
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import java.util.UUID
+
+enum class FailureStage {
+    ANALYZE,
+    DOWNLOAD,
+    SAVE,
+}
+
+data class CompletedDownload(
+    val contentUri: String,
+    val displayName: String,
+    val relativePath: String,
+    val mimeType: String,
+)
 
 data class HomeUiState(
     val input: String = "",
@@ -33,19 +48,45 @@ data class HomeUiState(
     val formats: List<DownloadFormat> = emptyList(),
     val selectedFormatId: String = "best",
     val progress: Int = 0,
-    val message: String = "粘贴链接，或从 X、Instagram 分享到 Video Get。",
+    val progressLabel: String = "",
+    val message: String = "粘贴链接，或从 X、Instagram、Threads 分享到 Video Get。",
+    val failureStage: FailureStage? = null,
+    val completedDownload: CompletedDownload? = null,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val workManager = WorkManager.getInstance(application)
     private var activeWorkId: UUID? = null
     private var workObserver: Job? = null
+    private var analyzeJob: Job? = null
 
     var uiState by mutableStateOf(HomeUiState())
         private set
 
+    init {
+        restoreActiveDownload()
+    }
+
     fun updateInput(value: String) {
+        analyzeJob?.cancel()
         uiState = HomeUiState(input = value)
+    }
+
+    fun pasteAndAnalyze(text: String?) {
+        val pasted = text?.trim().orEmpty()
+        val url = UrlRouter.extractSingleUrl(pasted)
+            ?: pasted.takeIf { UrlRouter.match(it) != null }
+        if (url == null) {
+            uiState = HomeUiState(
+                input = pasted,
+                state = AnalyzeState.INVALID,
+                message = "剪贴板中没有找到一个受支持的视频链接。",
+                failureStage = FailureStage.ANALYZE,
+            )
+            return
+        }
+        uiState = HomeUiState(input = url)
+        analyze(url)
     }
 
     fun acceptSharedText(text: String?) {
@@ -55,6 +96,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 input = text.orEmpty(),
                 state = AnalyzeState.INVALID,
                 message = "分享内容中需要恰好包含一个支持的链接。",
+                failureStage = FailureStage.ANALYZE,
             )
         } else {
             uiState = HomeUiState(input = url)
@@ -63,18 +105,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun analyze(value: String = uiState.input) {
+        analyzeJob?.cancel()
         val match = UrlRouter.match(value)
         when {
             match == null -> uiState = HomeUiState(
                 input = value,
                 state = AnalyzeState.INVALID,
                 message = "请输入有效的 X、Instagram 或 Threads 帖子链接。",
+                failureStage = FailureStage.ANALYZE,
             )
             !match.available -> uiState = HomeUiState(
                 input = value,
                 state = AnalyzeState.PLANNED,
                 match = match,
-                message = "已识别 Threads 链接，该平台已规划但暂不可下载。",
+                message = "该平台已识别，但当前版本暂不可下载。",
+                failureStage = FailureStage.ANALYZE,
             )
             else -> {
                 uiState = HomeUiState(
@@ -83,21 +128,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     match = match,
                     message = "正在设备本地分析媒体信息…",
                 )
-                viewModelScope.launch {
+                analyzeJob = viewModelScope.launch {
                     runCatching { MediaAnalyzer.analyze(getApplication(), match.canonicalUrl) }
                         .onSuccess { media ->
+                            if (uiState.match?.canonicalUrl != match.canonicalUrl) return@onSuccess
                             uiState = uiState.copy(
                                 state = AnalyzeState.READY,
                                 title = media.title,
                                 formats = media.formats,
                                 selectedFormatId = media.formats.first().id,
                                 message = media.warning ?: "分析完成，请选择清晰度后下载。",
+                                failureStage = null,
                             )
                         }
                         .onFailure { error ->
+                            if (uiState.match?.canonicalUrl != match.canonicalUrl) return@onFailure
                             uiState = uiState.copy(
                                 state = AnalyzeState.INVALID,
                                 message = "分析失败：${friendlyError(error)}",
+                                failureStage = FailureStage.ANALYZE,
                             )
                         }
                 }
@@ -106,7 +155,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectFormat(id: String) {
-        if (uiState.state == AnalyzeState.READY) uiState = uiState.copy(selectedFormatId = id)
+        if (uiState.state == AnalyzeState.READY || uiState.state == AnalyzeState.COMPLETED) {
+            uiState = uiState.copy(selectedFormatId = id)
+        }
     }
 
     fun download() {
@@ -126,6 +177,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 OneTimeWorkRequestBuilder<DownloadWorker>()
                     .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                     .setInputData(Data.Builder().putString(DownloadWorker.KEY_REQUEST_ID, requestId).build())
+                    .addTag(DownloadWorker.ACTIVE_WORK_TAG)
                     .build()
                     .also(workManager::enqueue)
             } catch (error: Exception) {
@@ -135,15 +187,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         result.onSuccess { request ->
             activeWorkId = request.id
-            uiState = state.copy(state = AnalyzeState.DOWNLOADING, progress = 0, message = "下载任务已开始。")
+            DownloadSessionStore.save(
+                getApplication(),
+                ActiveDownloadSession(
+                    workId = request.id,
+                    sourceUrl = state.match?.canonicalUrl ?: state.input,
+                    title = state.title,
+                ),
+            )
+            uiState = state.copy(
+                state = AnalyzeState.DOWNLOADING,
+                progress = 0,
+                progressLabel = "等待网络",
+                message = "下载任务已开始。",
+                failureStage = null,
+                completedDownload = null,
+            )
             observe(request.id)
         }.onFailure { error ->
-            uiState = state.copy(state = AnalyzeState.READY, message = "无法启动下载：${friendlyError(error)}")
+            uiState = state.copy(
+                state = AnalyzeState.READY,
+                message = "无法启动下载：${friendlyError(error)}",
+                failureStage = FailureStage.DOWNLOAD,
+            )
+        }
+    }
+
+    fun retry() {
+        when {
+            uiState.failureStage == FailureStage.ANALYZE -> analyze()
+            uiState.formats.isNotEmpty() -> download()
+            uiState.input.isNotBlank() -> analyze()
         }
     }
 
     fun cancelDownload() {
         activeWorkId?.let(workManager::cancelWorkById)
+    }
+
+    private fun restoreActiveDownload() {
+        val session = DownloadSessionStore.load(getApplication()) ?: return
+        activeWorkId = session.workId
+        uiState = HomeUiState(
+            input = session.sourceUrl,
+            state = AnalyzeState.DOWNLOADING,
+            title = session.title,
+            progressLabel = "正在恢复任务",
+            message = "正在恢复下载状态…",
+        )
+        observe(session.workId)
     }
 
     private fun observe(id: UUID) {
@@ -152,28 +244,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             workManager.getWorkInfoByIdFlow(id).filterNotNull().collect { info ->
                 val progress = info.progress.getInt(DownloadWorker.KEY_PROGRESS, uiState.progress)
                 uiState = when (info.state) {
+                    WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> uiState.copy(
+                        state = AnalyzeState.DOWNLOADING,
+                        progress = progress,
+                        progressLabel = "等待网络",
+                        message = "任务将在网络可用后继续。",
+                    )
                     WorkInfo.State.RUNNING -> uiState.copy(
                         state = AnalyzeState.DOWNLOADING,
                         progress = progress,
+                        progressLabel = "正在下载",
                         message = "正在下载：$progress%",
                     )
-                    WorkInfo.State.SUCCEEDED -> uiState.copy(
-                        state = AnalyzeState.COMPLETED,
-                        progress = 100,
-                        message = "下载完成，视频已保存到 Movies/Video Get。",
-                    )
-                    WorkInfo.State.FAILED -> uiState.copy(
-                        state = AnalyzeState.READY,
-                        message = "下载失败：${info.outputData.getString(DownloadWorker.KEY_ERROR) ?: "请重试"}",
-                    )
-                    WorkInfo.State.CANCELLED -> uiState.copy(
-                        state = AnalyzeState.READY,
-                        message = "下载已取消。",
-                    )
-                    else -> uiState
+                    WorkInfo.State.SUCCEEDED -> {
+                        val completed = info.outputData.getString(DownloadWorker.KEY_OUTPUT_URI)?.let { uri ->
+                            CompletedDownload(
+                                contentUri = uri,
+                                displayName = info.outputData.getString(DownloadWorker.KEY_OUTPUT_NAME)
+                                    ?: "video-get.mp4",
+                                relativePath = info.outputData.getString(DownloadWorker.KEY_OUTPUT_RELATIVE_PATH)
+                                    ?: "Movies/Video Get",
+                                mimeType = info.outputData.getString(DownloadWorker.KEY_OUTPUT_MIME_TYPE)
+                                    ?: "video/mp4",
+                            )
+                        }
+                        finishWork(id)
+                        uiState.copy(
+                            state = AnalyzeState.COMPLETED,
+                            progress = 100,
+                            progressLabel = "下载完成",
+                            message = "视频已保存到 ${completed?.relativePath ?: "Movies/Video Get"}。",
+                            failureStage = null,
+                            completedDownload = completed,
+                        )
+                    }
+                    WorkInfo.State.FAILED -> {
+                        val stage = when (info.outputData.getString(DownloadWorker.KEY_FAILURE_STAGE)) {
+                            DownloadWorker.FAILURE_STAGE_SAVE -> FailureStage.SAVE
+                            else -> FailureStage.DOWNLOAD
+                        }
+                        finishWork(id)
+                        uiState.copy(
+                            state = if (uiState.formats.isEmpty()) AnalyzeState.INVALID else AnalyzeState.READY,
+                            progressLabel = "",
+                            message = "${if (stage == FailureStage.SAVE) "保存失败" else "下载失败"}：${
+                                info.outputData.getString(DownloadWorker.KEY_ERROR) ?: "请重试"
+                            }",
+                            failureStage = stage,
+                        )
+                    }
+                    WorkInfo.State.CANCELLED -> {
+                        finishWork(id)
+                        uiState.copy(
+                            state = if (uiState.formats.isEmpty()) AnalyzeState.IDLE else AnalyzeState.READY,
+                            progressLabel = "",
+                            message = "下载已取消。",
+                            failureStage = null,
+                        )
+                    }
                 }
             }
         }
+    }
+
+    private fun finishWork(id: UUID) {
+        DownloadSessionStore.clear(getApplication(), id)
+        if (activeWorkId == id) activeWorkId = null
     }
 
     private fun friendlyError(error: Throwable): String {
@@ -182,7 +318,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             text.contains("Unsupported URL", true) -> "该链接暂不受支持"
             text.contains("I/O operation on closed file", true) -> "媒体服务连接被中断，请检查手机网络或代理后重试"
             text.contains("timed out", true) -> "媒体服务连接超时，请检查手机网络或代理后重试"
-            text.contains("login", true) || text.contains("cookies", true) -> "内容需要登录，第一版不读取账号 Cookie"
+            text.contains("login", true) || text.contains("cookies", true) -> "内容需要登录，当前版本不读取账号 Cookie"
             text.isBlank() -> "无法获取媒体信息，请检查网络后重试"
             else -> text.take(240)
         }

@@ -1,6 +1,6 @@
 # Video Get Android
 
-阶段 5 的原生 Android 客户端。当前里程碑 5.3 已完成设备本地 yt-dlp/FFmpeg 下载主流程、公开 Threads 解析和 Android 14+ 前台下载适配，正在进行稳定性与发布验收。
+阶段 5 的原生 Android 客户端。里程碑 5.3 已完成设备本地 yt-dlp/FFmpeg 下载主流程、公开 Threads 解析、Android 14+ 前台下载适配及内部 Release 0.1.0 验证。里程碑 5.4 的易用性优化已完成，并通过签名 Release 覆盖安装与真机测试，详见[易用性优化方案](../../docs/08-android-usability-plan.md)。
 
 ## 环境
 
@@ -48,6 +48,8 @@ app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 - 支持粘贴或通过系统分享接收一个 X、Instagram 或 Threads 链接。
 - 在设备本地分析标题并提供最佳、1080p、720p 三档选择。
 - 使用 WorkManager 前台任务下载、合并音视频、显示进度并支持取消。
+- 粘贴链接后自动分析，支持键盘分析、整行选择清晰度和分阶段失败重试。
+- 下载完成后可直接打开视频、查看保存位置或再次下载；App 重建后可恢复当前下载任务。
 - Android 10+ 保存到系统媒体库 `Movies/Video Get`。
 - X 的 yt-dlp 解析失败时，可使用 FxTwitter 获取公开帖子媒体直链；实际视频仍直接从 `video.twimg.com` 下载。
 - 支持公开 Threads 单视频和多视频帖，含 `threads.com`、`threads.net`、`/t/` 与分享链接。

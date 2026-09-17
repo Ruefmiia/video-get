@@ -16,6 +16,7 @@
 - [阶段 5：Android App](docs/05-android-app.md)
 - [测试、发布与验收策略](docs/06-testing-and-release.md)
 - [项目现状、各端软件、目录结构与路线图](docs/07-project-status.md)
+- [Android 里程碑 5.4：易用性优化方案](docs/08-android-usability-plan.md)
 
 ## 目录结构
 
@@ -58,14 +59,14 @@ video-get/
 
 ## 当前开发状态
 
-阶段 1 至阶段 3 已完成开发版；阶段 4 的 X/Instagram 桌面闭环基本完成；阶段 5 Android App 已完成本地下载主流程，当前进入稳定性和发布准备。项目包含 FastAPI 下载服务、Chrome/Edge Manifest V3 扩展、带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包。Android 端可接收分享或手动粘贴链接，使用设备内 yt-dlp/FFmpeg 下载 X 与 Instagram，并通过原生 Kotlin 解析器下载公开 Threads 视频。桌面链路暂不下载 Threads；私密、删除或登录后可见的 Threads 内容不受支持。
+阶段 1 至阶段 3 已完成开发版；阶段 4 的 X/Instagram 桌面闭环基本完成；阶段 5 Android App 已完成本地下载主流程、内部 Release 0.1.0 验证和 5.4 易用性优化，并通过签名 Release 覆盖安装与真机测试。项目包含 FastAPI 下载服务、Chrome/Edge Manifest V3 扩展、带内置 FFmpeg 的 Windows 桌面托盘程序和 Inno Setup 安装包。Android 端可接收分享或手动粘贴链接，使用设备内 yt-dlp/FFmpeg 下载 X 与 Instagram，并通过原生 Kotlin 解析器下载公开 Threads 视频。桌面链路暂不下载 Threads；私密、删除或登录后可见的 Threads 内容不受支持。
 
 | 软件 | 当前状态 | X | Instagram | Threads |
 |---|---|---:|---:|---:|
 | FastAPI 下载核心 | 核心完成 | 支持 | 支持 | 计划中 |
 | Chrome/Edge 扩展 | 0.1.0 开发版完成 | 通过本地 API | 通过本地 API | 仅识别和提示 |
 | Windows 桌面辅助程序 | 0.1.0 安装回归通过 | 管理桌面链路 | 管理桌面链路 | 暂不支持 |
-| Android App | 核心完成、发布稳定化中 | 支持 | 支持 | 实验支持公开内容 |
+| Android App | 内部 0.1.0 与 5.4 易用性优化已通过真机验证 | 支持 | 支持 | 实验支持公开内容 |
 
 更完整的阶段进度、验证结果和待办事项见[项目现状文档](docs/07-project-status.md)。
 

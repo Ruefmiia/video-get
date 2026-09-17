@@ -9,7 +9,7 @@ Video Get 已形成两条可独立使用的本地下载链路，不需要云服�
 1. Windows 桌面链路：Chrome/Edge 扩展连接本机 FastAPI 下载核心，由 Windows 桌面辅助程序负责安装、启动、令牌发现和 FFmpeg 管理。
 2. Android 链路：原生 App 在手机内运行 yt-dlp/FFmpeg，并使用独立 Kotlin 解析器支持公开 Threads 视频。
 
-阶段 1 至阶段 4 的主要开发目标已经完成。阶段 5 的 Android 核心下载流程已经可用，当前重点从“实现基本功能”转为稳定性、发布构建、许可证与真实平台回归。
+阶段 1 至阶段 4 的主要开发目标已经完成。阶段 5 的 Android 核心下载流程、内部 Release 0.1.0 验证和里程碑 5.4 易用性优化均已完成；5.4 已通过 Debug 自动化、签名 Release 覆盖安装与真机测试。
 
 ## 2. 各端软件
 
@@ -18,7 +18,7 @@ Video Get 已形成两条可独立使用的本地下载链路，不需要云服�
 | 本地下载 API | `services/downloader-api` | Python、FastAPI、yt-dlp、FFmpeg、SQLite | 已完成核心功能 | X、Instagram 可用；Threads 为计划状态 |
 | Chrome/Edge 扩展 | `apps/browser-extension` | React、TypeScript、Vite、Manifest V3 | 已完成 0.1.0 开发版 | 通过本地 API 下载 X/Instagram；Threads 只显示计划状态 |
 | Windows 桌面辅助程序 | `apps/desktop-companion` | Python、Tk、PyInstaller、Inno Setup | 已完成 0.1.0 开发版与真实安装回归 | 管理本地 API、令牌、托盘、开机启动、Native Messaging 和内置 FFmpeg |
-| Android App | `apps/android` | Kotlin、Jetpack Compose、WorkManager、MediaStore、youtubedl-android | 核心流程可用，发布稳定化中 | X、Instagram 与公开 Threads；Threads 属实验支持 |
+| Android App | `apps/android` | Kotlin、Jetpack Compose、WorkManager、MediaStore、youtubedl-android | 内部 0.1.0 与 5.4 易用性优化已通过真机验证 | X、Instagram 与公开 Threads；Threads 属实验支持 |
 
 ### Windows 桌面链路
 
@@ -64,7 +64,7 @@ WorkManager 前台下载 ── FFmpeg ── MediaStore
 | 2. 浏览器扩展 | 已完成 | Chrome/Edge 共用 MV3 源码、分析、格式选择、下载、进度、取消、重试 | 发布打包与商店审核准备 |
 | 3. Windows 辅助程序 | 已完成开发版 | PyInstaller EXE、托盘、Native Messaging、Inno Setup、内置 FFmpeg | 代码签名、升级机制、干净环境发布验收 |
 | 4. X/Instagram 闭环 | 基本完成 | X/Instagram 规范化、格式令牌、多媒体选择、错误分类 | 扩大真实平台回归样本，重点验证 Instagram 网络环境 |
-| 5. Android App | 核心完成 | 本地分析下载、通知、MediaStore、X 回退、Threads、黑白灰 UI、ABI 拆包 | 历史/队列、Threads/DASH 稳定性、Release/AAB 与许可证验收 |
+| 5. Android App | 5.4 已完成并通过真机验证 | 本地分析下载、通知、MediaStore、X 回退、Threads、黑白灰 UI、ABI 拆包、专用签名、完成后操作、错误重试、任务恢复 | 进入 5.5 YouTube 第一版，再处理历史/队列和 Threads/DASH 稳定性 |
 
 ## 4. Android ABI 与包体积策略
 
@@ -149,8 +149,8 @@ video-get/
 
 ## 7. 建议后续顺序
 
-1. 完成 Android Release 构建、R8/资源压缩、签名、AAB 与许可证清单。
-2. 为 Android 增加下载历史、多任务队列和明确重试策略。
-3. 完善 Threads `xmt` 动态页面和 DASH 分离音视频合并。
-4. 建立 X、Instagram、Threads 的固定授权回归样本与发布检查表。
-5. 完成 Windows 安装包签名和升级策略，再准备扩展商店发布。
+1. 实施 Android 5.5 YouTube 第一版：普通视频、短链接与 Shorts 的单视频下载。
+2. 验证 QuickJS、YouTube JS Challenge、1080p 音视频合并及常见受限内容错误映射。
+3. 完整历史和多任务队列继续后置，保持内部单任务界面简洁。
+4. 完善 Threads `xmt` 动态页面和 DASH 分离音视频合并。
+5. 建立 X、Instagram、Threads、YouTube 的固定授权回归样本与内部发布检查表。
