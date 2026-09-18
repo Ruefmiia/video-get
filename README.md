@@ -35,6 +35,7 @@ Android App 使用 Kotlin、Jetpack Compose、WorkManager、MediaStore、yt-dlp 
 - 下载完成后可直接打开媒体或查看保存目录。
 - APK 按 CPU 架构拆分，日常版本默认仅维护 `arm64-v8a`。
 
+
 ### 安装条件
 
 - Android 8.0（API 26）或更高版本。
@@ -48,14 +49,6 @@ Android App 使用 Kotlin、Jetpack Compose、WorkManager、MediaStore、yt-dlp 
 video-get-1.0.0-arm64-v8a.apk
 ```
 
-使用 ADB 覆盖安装：
-
-```powershell
-& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r `
-  ".\release-output\1.0.0\video-get-1.0.0-arm64-v8a.apk"
-```
-
-使用同一签名覆盖安装时，已有 App 数据和登录会话通常会保留。若后续版本更换签名密钥，将无法直接覆盖旧版本。
 
 ### Instagram 登录与隐私
 
@@ -67,34 +60,7 @@ video-get-1.0.0-arm64-v8a.apk
 - 用户可点击“Instagram 已连接”退出并清除本地会话。
 - Instagram 可能要求重新登录、验证码或安全检查，也可能限制第三方工具使用。
 
-### 构建 Android App
 
-需要 JDK 17+、Android SDK Platform 36 和对应 Build-Tools，无需安装完整 Android Studio。
-
-```powershell
-cd apps/android
-.\gradlew.bat testDebugUnitTest assembleDebug
-```
-
-默认输出：
-
-```text
-apps/android/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
-```
-
-构建四种 ABI：
-
-```powershell
-.\gradlew.bat assembleDebug "-PvideoGetAbis=arm64-v8a,armeabi-v7a,x86,x86_64"
-```
-
-生成专用签名 Release：
-
-```powershell
-.\build-internal-release.ps1
-```
-
-签名脚本会运行单元测试、构建 `arm64-v8a` Release、验证 APK 签名，并生成 APK、SHA-256 和第三方声明。JKS、密码及 `release-output` 不应提交到 Git。
 
 ## Windows 桌面链路
 
