@@ -22,6 +22,8 @@ import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.videoget.app.instagram.InstagramSession
+import com.videoget.app.history.SourceFile
+import com.videoget.app.history.SourceHistoryStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -56,6 +58,8 @@ class DownloadWorker(
             }
             val savedItems = mutableListOf<PublishedMedia>()
             val errors = mutableListOf<String>()
+            var sourceRecordFailed = false
+            val downloadedAt = System.currentTimeMillis()
             items.forEachIndexed { index, item ->
                 if (isStopped) error("下载已取消")
                 val itemDir = File(workDir, "item-${index + 1}").apply { mkdirs() }
@@ -67,7 +71,19 @@ class DownloadWorker(
                         downloadWithYtDlp(request.url, item.selector, itemDir, request.title, index, items.size)
                     }
                     failureStage = FAILURE_STAGE_SAVE
-                    savedItems += publish(media)
+                    val published = publish(media)
+                    savedItems += published
+                    try {
+                        SourceHistoryStore.get(applicationContext).record(
+                            groupId = processId,
+                            sourceUrl = request.url,
+                            downloadedAt = downloadedAt,
+                            file = SourceFile(published.uri, published.displayName),
+                        )
+                    } catch (_: Exception) {
+                        // A provenance write failure must not discard successfully saved media.
+                        sourceRecordFailed = true
+                    }
                 } catch (error: Exception) {
                     if (isStopped) throw error
                     errors += finalErrorMessage(error)
@@ -90,6 +106,7 @@ class DownloadWorker(
                     .putString(KEY_OUTPUT_MIME_TYPE, first.mimeType)
                     .putString(KEY_OUTPUT_ITEMS, mapper.writeValueAsString(savedItems))
                     .putInt(KEY_FAILED_COUNT, errors.size)
+                    .putBoolean(KEY_SOURCE_RECORD_FAILED, sourceRecordFailed)
                     .build(),
             )
         } catch (error: Exception) {
@@ -402,6 +419,7 @@ class DownloadWorker(
         const val KEY_OUTPUT_MIME_TYPE = "output_mime_type"
         const val KEY_OUTPUT_ITEMS = "output_items"
         const val KEY_FAILED_COUNT = "failed_count"
+        const val KEY_SOURCE_RECORD_FAILED = "source_record_failed"
         const val KEY_ERROR = "error"
         const val KEY_FAILURE_STAGE = "failure_stage"
         const val KEY_REQUEST_ID = "request_id"

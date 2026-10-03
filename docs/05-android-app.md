@@ -2,6 +2,8 @@
 
 ## 当前实现（首个正式内部版本 1.0.0）
 
+开发版本 `1.1.0` 已接入精简下载来源记录与 CSV 导出，待签名 Release 真机验收。只记录成功文件，使用系统 SQLite，两表共六类字段，无新增数据库依赖。详见[下载溯源方案与验收](11-android-source-history.md)。
+
 已完成：
 
 - Kotlin + Jetpack Compose 单模块工程和 Gradle Wrapper。
@@ -27,7 +29,7 @@
 
 尚未完成：
 
-- 多任务下载队列、显式重试策略与 Room 历史记录。
+- 多任务下载队列、显式重试策略与完整任务历史；轻量成功文件来源记录已在开发版实现。
 - Android 9 的公共媒体库兼容写入；当前回退到 App 专属 Movies 目录。
 - YouTube 普通视频、短链接和 Shorts 单视频支持已进入 0.2.0；签名 Release 覆盖安装和公开短链接真机下载已通过。
 - 仅通过 JavaScript 动态注入目标的 Threads `xmt` 页面仍需完善已布局 WebView、懒加载与资源诊断。

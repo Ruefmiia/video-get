@@ -295,6 +295,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     it.items.size > 1 -> "已保存$summary。"
                                     else -> "媒体已保存到 ${it.items.firstOrNull()?.relativePath ?: "Video Get"}。"
                                 }
+                            }?.let { summary ->
+                                if (info.outputData.getBoolean(DownloadWorker.KEY_SOURCE_RECORD_FAILED, false)) {
+                                    "$summary 部分来源记录保存失败。"
+                                } else summary
                             } ?: "下载完成。",
                             failureStage = null,
                             completedDownload = completed,

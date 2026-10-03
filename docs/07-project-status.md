@@ -1,6 +1,8 @@
 # 项目现状、客户端与路线图
 
-> 状态日期：2026-09-17。本文件是当前实现进度的统一入口；各阶段文档保留设计细节与验收标准。
+> 状态日期：2026-10-03。本文件是当前实现进度的统一入口；各阶段文档保留设计细节与验收标准。
+
+Android 正式版本仍为 `1.0.0`。开发版本 `1.1.0` 已加入轻量成功文件来源记录、查看原帖/打开文件与 CSV 单组/全部导出，待签名 Release 真机验收。使用系统 SQLite，无新增数据库依赖；详见[下载溯源文档](11-android-source-history.md)。
 
 ## 1. 当前结论
 
@@ -18,7 +20,7 @@ Video Get 已形成两条可独立使用的本地下载链路，不需要云服�
 | 本地下载 API | `services/downloader-api` | Python、FastAPI、yt-dlp、FFmpeg、SQLite | 已完成核心功能 | X、Instagram 可用；Threads 为计划状态 |
 | Chrome/Edge 扩展 | `apps/browser-extension` | React、TypeScript、Vite、Manifest V3 | 已完成 0.1.0 开发版 | 通过本地 API 下载 X/Instagram；Threads 只显示计划状态 |
 | Windows 桌面辅助程序 | `apps/desktop-companion` | Python、Tk、PyInstaller、Inno Setup | 已完成 0.1.0 开发版与真实安装回归 | 管理本地 API、令牌、托盘、开机启动、Native Messaging 和内置 FFmpeg |
-| Android App | `apps/android` | Kotlin、Jetpack Compose、WorkManager、MediaStore、youtubedl-android | 1.0.0 首个正式内部版本 | YouTube、X、Instagram 图片/视频与公开 Threads；YouTube/Threads 属实验支持 |
+| Android App | `apps/android` | Kotlin、Jetpack Compose、WorkManager、MediaStore、youtubedl-android、系统 SQLite | 1.0.0 正式内部版；1.1.0 下载溯源开发版待真机验收 | YouTube、X、Instagram 图片/视频与公开 Threads；开发版新增来源记录及 CSV 导出 |
 
 ### Windows 桌面链路
 
@@ -54,7 +56,7 @@ WorkManager 前台下载 ── FFmpeg ── MediaStore
                                       └─ Movies/Video Get
 ```
 
-已验证 X 与公开 Threads 视频下载。Instagram 已接入独立 WebView 登录会话、帖子媒体解析及图片/视频混合下载，当前等待真机单图、轮播、混合帖子和 Reel 验收。其他未完成项包括多任务历史、Room 持久化、纯动态 Threads `xmt` 页面稳定化、分离 DASH 音视频合并及完整发布验收。
+已验证 X 与公开 Threads 视频下载。Instagram 已接入独立 WebView 登录会话、帖子媒体解析及图片/视频混合下载，当前等待真机单图、轮播、混合帖子和 Reel 验收。开发版 1.1.0 使用系统 SQLite 实现精简成功文件来源记录及 CSV 导出；完整任务历史、多任务队列、纯动态 Threads `xmt` 页面稳定化、分离 DASH 音视频合并及完整发布验收仍未完成。
 
 ## 3. 阶段进度
 
@@ -136,6 +138,8 @@ video-get/
 `build`、`dist`、Gradle 缓存、Node.js 依赖及 APK/EXE 等生成物不属于源码目录，不应提交。
 
 ## 6. 最新验证基线
+
+2026-10-03 Android 下载溯源开发版：32 项 JVM 单元测试通过，`arm64-v8a` Debug APK 与设备测试 APK 构建通过。设备测试覆盖来源数据库归组、去重、持久化、分页与导出；当前没有连接 Android 设备，设备测试尚未运行，签名 Release 覆盖安装与 UI 真机验收待完成。
 
 2026-09-17 本地验证：
 

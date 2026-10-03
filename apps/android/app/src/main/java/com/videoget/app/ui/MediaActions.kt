@@ -7,8 +7,34 @@ import android.provider.DocumentsContract
 import androidx.core.content.FileProvider
 import com.videoget.app.CompletedMedia
 import java.io.File
+import com.videoget.app.history.SourceFile
 
 object MediaActions {
+    fun openRecordedFile(context: Context, file: SourceFile): Boolean = runCatching {
+        val uri = shareableUri(context, file.contentUri)
+        context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { }
+            ?: error("文件不可用")
+        val mime = context.contentResolver.getType(uri)
+            ?: when (file.fileName.substringAfterLast('.').lowercase()) {
+                "jpg", "jpeg" -> "image/jpeg"
+                "png" -> "image/png"
+                "webp" -> "image/webp"
+                "avif" -> "image/avif"
+                "webm" -> "video/webm"
+                else -> "video/mp4"
+            }
+        context.startActivity(Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mime)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+    }.isSuccess
+
+    fun openSource(context: Context, sourceUrl: String): Boolean = runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(sourceUrl)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+    }.isSuccess
+
     fun openVideo(context: Context, media: CompletedMedia): Boolean = runCatching {
         val uri = shareableUri(context, media.contentUri)
         val intent = Intent(Intent.ACTION_VIEW).apply {

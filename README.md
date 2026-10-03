@@ -6,6 +6,8 @@ Video Get 是一个本地优先的社交媒体内容获取工具，提供 Androi
 
 > 当前正式版本：Android `1.0.0`，默认发行 `arm64-v8a` APK。
 
+Android 开发版本 `1.1.0` 新增轻量下载来源记录与 CSV 导出，待签名 Release 真机验收。成功文件自动关联原帖，可打开来源、复制链接和导出；不保存媒体副本或缩略图。见[下载溯源开发文档](docs/11-android-source-history.md)。
+
 ## 当前能力
 
 | 客户端 | 状态 | YouTube | X | Instagram | Threads |
@@ -161,7 +163,7 @@ video-get/
 - Threads 纯动态页面、平台新增媒体结构和分离 DASH 轨道可能解析失败。
 - Instagram 登录会话可能因改密、异地登录、平台风控或接口变化而失效。
 - 下载平台结构发生变化时，通常需要升级 App 或其内置解析组件。
-- Android 当前没有完整下载历史、多任务队列和 Room 持久化。
+- Android 当前没有完整任务历史或多任务队列；开发版 1.1.0 已加入系统 SQLite 成功文件来源记录与 CSV 导出。
 - iOS 客户端尚未开发。
 
 ## 文档
@@ -177,6 +179,7 @@ video-get/
 - [Android 易用性优化](docs/08-android-usability-plan.md)
 - [Android YouTube 方案](docs/09-android-youtube-plan.md)
 - [Android Instagram 登录方案](docs/10-android-instagram-login-plan.md)
+- [Android 下载溯源与 CSV 导出](docs/11-android-source-history.md)
 - [Android 1.0.0 发布说明](apps/android/release-notes/1.0.0.md)
 
 ## 免责声明

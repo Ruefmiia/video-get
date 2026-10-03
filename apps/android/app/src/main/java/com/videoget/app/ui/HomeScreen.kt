@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PlayCircle
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -54,6 +55,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -77,6 +79,14 @@ import com.videoget.app.instagram.InstagramSession
 @Composable
 fun VideoGetApp(viewModel: MainViewModel = viewModel()) {
     val context = LocalContext.current
+    var showHistory by rememberSaveable { mutableStateOf(false) }
+    var lastInput by rememberSaveable { mutableStateOf(viewModel.uiState.input) }
+    LaunchedEffect(viewModel.uiState.input) {
+        if (lastInput != viewModel.uiState.input) {
+            showHistory = false
+            lastInput = viewModel.uiState.input
+        }
+    }
     var instagramConnected by remember { mutableStateOf(InstagramSession.isLoggedIn()) }
     val instagramLogin = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -94,24 +104,29 @@ fun VideoGetApp(viewModel: MainViewModel = viewModel()) {
     }
 
     VideoGetTheme {
-        HomeScreen(
-            state = viewModel.uiState,
-            onInputChange = viewModel::updateInput,
-            onPasteAndAnalyze = viewModel::pasteAndAnalyze,
-            onAnalyze = { viewModel.analyze() },
-            onSelectFormat = viewModel::selectFormat,
-            onDownload = viewModel::download,
-            onRetry = viewModel::retry,
-            onCancel = viewModel::cancelDownload,
-            instagramConnected = instagramConnected,
-            onConnectInstagram = {
-                instagramLogin.launch(Intent(context, InstagramLoginActivity::class.java))
-            },
-            onDisconnectInstagram = {
-                InstagramSession.clear()
-                instagramConnected = false
-            },
-        )
+        if (showHistory) {
+            SourceHistoryScreen(onBack = { showHistory = false })
+        } else {
+            HomeScreen(
+                state = viewModel.uiState,
+                onInputChange = viewModel::updateInput,
+                onPasteAndAnalyze = viewModel::pasteAndAnalyze,
+                onAnalyze = { viewModel.analyze() },
+                onSelectFormat = viewModel::selectFormat,
+                onDownload = viewModel::download,
+                onRetry = viewModel::retry,
+                onCancel = viewModel::cancelDownload,
+                onHistory = { showHistory = true },
+                instagramConnected = instagramConnected,
+                onConnectInstagram = {
+                    instagramLogin.launch(Intent(context, InstagramLoginActivity::class.java))
+                },
+                onDisconnectInstagram = {
+                    InstagramSession.clear()
+                    instagramConnected = false
+                },
+            )
+        }
     }
 }
 
@@ -126,6 +141,7 @@ private fun HomeScreen(
     onDownload: () -> Unit,
     onRetry: () -> Unit,
     onCancel: () -> Unit,
+    onHistory: () -> Unit,
     instagramConnected: Boolean,
     onConnectInstagram: () -> Unit,
     onDisconnectInstagram: () -> Unit,
@@ -144,6 +160,9 @@ private fun HomeScreen(
             TopAppBar(
                 title = { Text("Video Get") },
                 actions = {
+                    IconButton(onClick = onHistory) {
+                        Icon(Icons.Outlined.History, contentDescription = "下载记录")
+                    }
                     TextButton(onClick = if (instagramConnected) onDisconnectInstagram else onConnectInstagram) {
                         Text(if (instagramConnected) "Instagram 已连接" else "连接 Instagram")
                     }
@@ -425,6 +444,9 @@ private fun CompletedActions(
         Text("下载完成", style = MaterialTheme.typography.titleMedium)
     }
     if (media != null) {
+        if (state.message.contains("来源记录保存失败")) {
+            Text(state.message, style = MaterialTheme.typography.bodySmall)
+        }
         Text(
             if (completed.items.size > 1) "已保存 ${completed.items.size} 项媒体" else media.displayName,
             style = MaterialTheme.typography.bodyMedium,

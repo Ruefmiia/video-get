@@ -45,6 +45,8 @@ app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 
 ## 当前范围
 
+开发版本 `1.1.0` 新增成功文件来源记录与 CSV 导出，待签名 Release 真机验收。首页右上角可进入下载记录，打开原帖、复制链接、打开文件，或导出单组/全部记录。使用系统 SQLite 仅保存链接、时间、文件名和 URI，不保存媒体副本或缩略图。旧版下载不补录；详见[下载溯源文档](../../docs/11-android-source-history.md)。
+
 - 支持粘贴或通过系统分享接收一个 YouTube、X、Instagram 或 Threads 链接。
 - 在设备本地分析标题并提供最佳、1080p、720p 三档选择。
 - 使用 WorkManager 前台任务下载、合并音视频、显示进度并支持取消。
