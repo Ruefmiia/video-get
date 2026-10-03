@@ -69,16 +69,27 @@ class SourceHistoryStore(context: Context, databaseName: String = "source-histor
         } finally { db.endTransaction() }
     }
 
-    fun groups(limit: Int = PAGE_SIZE, offset: Int = 0): List<SourceGroup> {
-        require(limit in 1..100 && offset >= 0)
-        return readableDatabase.rawQuery("""
+    fun groups(
+        range: SourceDateRange = SourceDateRange(), cursor: SourceCursor? = null,
+        newer: Boolean = false, limit: Int = PAGE_SIZE,
+    ): SourcePage {
+        require(limit in 1..100)
+        val (conditions, args) = dateConditions(range)
+        if (cursor != null) {
+            val operator = if (newer) ">" else "<"
+            conditions.add("(g.downloaded_at, g.id) $operator (?, ?)")
+            args.addAll(listOf(cursor.time.toString(), cursor.id))
+        }
+        val order = if (newer) "ASC" else "DESC"
+        args.add((limit + 1).toString())
+        val rows = readableDatabase.rawQuery("""
             SELECT g.id, g.source_url, g.downloaded_at,
                 (SELECT file_name FROM source_files WHERE group_id = g.id ORDER BY rowid LIMIT 1),
                 (SELECT COUNT(*) FROM source_files WHERE group_id = g.id)
             FROM source_groups g
-            WHERE EXISTS (SELECT 1 FROM source_files WHERE group_id = g.id)
-            ORDER BY g.downloaded_at DESC, g.id DESC LIMIT ? OFFSET ?
-        """.trimIndent(), arrayOf(limit.toString(), offset.toString())).use { cursor ->
+            WHERE ${conditions.joinToString(" AND ")}
+            ORDER BY g.downloaded_at $order, g.id $order LIMIT ?
+        """.trimIndent(), args.toTypedArray()).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) add(SourceGroup(
                     cursor.getString(0), cursor.getString(1), cursor.getLong(2),
@@ -86,7 +97,24 @@ class SourceHistoryStore(context: Context, databaseName: String = "source-histor
                 ))
             }
         }
+        val page = rows.take(limit).let { if (newer) it.reversed() else it }
+        return SourcePage(page, if (newer) rows.size > limit else cursor != null,
+            if (newer) cursor != null else rows.size > limit)
     }
+
+    private fun dateConditions(range: SourceDateRange): Pair<MutableList<String>, MutableList<String>> {
+        val conditions = mutableListOf("EXISTS (SELECT 1 FROM source_files WHERE group_id = g.id)")
+        val args = mutableListOf<String>()
+        val (start, end) = range.bounds()
+        if (start != null) { conditions.add("g.downloaded_at >= ?"); args.add(start.toString()) }
+        if (end != null) { conditions.add("g.downloaded_at < ?"); args.add(end.toString()) }
+        return conditions to args
+    }
+
+    /** Removes provenance only; never resolves or deletes media URIs. Cascades file rows. */
+    fun deleteBefore(cutoff: Long): Int = writableDatabase.delete(
+        "source_groups", "downloaded_at < ?", arrayOf(cutoff.toString()),
+    )
 
     fun files(groupId: String): List<SourceFile> = readableDatabase.rawQuery(
         "SELECT content_uri, file_name FROM source_files WHERE group_id = ? ORDER BY rowid",
@@ -98,14 +126,15 @@ class SourceHistoryStore(context: Context, databaseName: String = "source-histor
     }
 
     /** Streams CSV without loading the entire history or creating a local export copy. */
-    fun exportCsv(writer: Writer, groupId: String? = null): Int {
+    fun exportCsv(writer: Writer, groupId: String? = null, range: SourceDateRange = SourceDateRange()): Int {
         SourceCsv.writeHeader(writer)
-        val filter = if (groupId == null) "" else "WHERE g.id = ?"
+        val (conditions, args) = dateConditions(range)
+        if (groupId != null) { conditions.add("g.id = ?"); args.add(groupId) }
         return readableDatabase.rawQuery("""
             SELECT g.source_url, g.downloaded_at, f.file_name
             FROM source_groups g JOIN source_files f ON f.group_id = g.id
-            $filter ORDER BY g.downloaded_at DESC, g.id DESC, f.rowid
-        """.trimIndent(), groupId?.let { arrayOf(it) }).use { cursor ->
+            WHERE ${conditions.joinToString(" AND ")} ORDER BY g.downloaded_at DESC, g.id DESC, f.rowid
+        """.trimIndent(), args.toTypedArray()).use { cursor ->
             var count = 0
             while (cursor.moveToNext()) {
                 SourceCsv.writeRow(writer, cursor.getString(0), cursor.getLong(1), cursor.getString(2))

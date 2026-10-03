@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.VideoGet.DatePicker" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#EEEEEE</item>
+    </style>
+</resources>
