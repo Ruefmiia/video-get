@@ -1,4 +1,10 @@
-export type PlatformId = 'x' | 'instagram' | 'threads'
+export type PlatformId = 'x' | 'instagram' | 'threads' | 'bilibili'
+
+export interface BilibiliCookie {
+  name: 'SESSDATA' | 'DedeUserID' | 'DedeUserID__ckMd5' | 'bili_jct'
+  value: string
+  expires: number | null
+}
 export type JobState = 'queued' | 'analyzing' | 'downloading' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
 export interface MediaFormat {

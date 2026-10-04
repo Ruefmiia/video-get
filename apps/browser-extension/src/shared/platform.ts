@@ -14,6 +14,10 @@ export function detectPlatform(value: string): DetectedPlatform | null {
     return null
   }
   const host = url.hostname.toLowerCase().replace(/^www\./, '')
+  if (((host === 'bilibili.com' || host === 'm.bilibili.com') && /^\/video\/(?:BV[A-Za-z0-9]{10}|av\d+)\/?$/.test(url.pathname))
+    || (host === 'b23.tv' && /^\/[A-Za-z0-9]+\/?$/.test(url.pathname))) {
+    return { id: 'bilibili', label: 'B站', planned: false }
+  }
   if ((host === 'x.com' || host === 'twitter.com') && /\/status\/\d+/.test(url.pathname)) {
     return { id: 'x', label: 'X', planned: false }
   }

@@ -104,12 +104,7 @@ class ServiceController:
 
     def stop(self, timeout: float = 5) -> None:
         if self.process and self.process.poll() is None:
-            self.process.terminate()
-            try:
-                self.process.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait(timeout=2)
+            stop_owned_process(self.process, timeout)
         self.process = None
         for stream in (self._stdout, self._stderr):
             if stream:
@@ -119,7 +114,7 @@ class ServiceController:
     def diagnostics(self) -> str:
         status = self.status()
         data = {
-            "companion_version": "0.1.0",
+            "companion_version": "0.2.1",
             "operating_system": platform.platform(),
             "architecture": platform.machine(),
             "python": platform.python_version(),
@@ -140,3 +135,24 @@ def _directory_writable(path: Path) -> bool:
         return True
     except OSError:
         return False
+
+
+def stop_owned_process(process: subprocess.Popen, timeout: float = 5) -> None:
+    """Stop only a child we own, including PyInstaller's onefile child process."""
+    if process.poll() is not None:
+        return
+    if sys.platform == "win32" and getattr(sys, "frozen", False):
+        subprocess.run(
+            ["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            timeout=timeout,
+        )
+    if process.poll() is None:
+        process.terminate()
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=2)

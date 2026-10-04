@@ -17,13 +17,17 @@ from video_get.media.ffmpeg import FFmpegToolchain
 from video_get.persistence.database import JobRepository
 from video_get.providers.registry import ProviderRegistry
 from video_get.providers.yt_dlp import YtDlpProvider
+from video_get.security.bilibili_session import BilibiliSession
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     resolved = settings or Settings.load()
     toolchain = FFmpegToolchain()
     repository = JobRepository(resolved.database_path)
-    registry = ProviderRegistry([YtDlpProvider(ffmpeg_location=toolchain.ffmpeg_path)])
+    bilibili_session = BilibiliSession()
+    registry = ProviderRegistry(
+        [YtDlpProvider(ffmpeg_location=toolchain.ffmpeg_path, bilibili_session=bilibili_session)]
+    )
     manager = JobManager(
         registry=registry,
         repository=repository,
@@ -37,9 +41,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
         manager.shutdown()
+        bilibili_session.clear()
 
     application = FastAPI(title="Video Get API", version=__version__, lifespan=lifespan)
     application.state.settings = resolved
+    application.state.bilibili_session = bilibili_session
     application.state.repository = repository
     application.state.registry = registry
     application.state.job_manager = manager

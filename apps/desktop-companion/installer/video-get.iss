@@ -1,5 +1,5 @@
 #define AppName "Video Get"
-#define AppVersion "0.1.0"
+#define AppVersion "0.2.1"
 #define AppPublisher "Video Get"
 #define AppExeName "VideoGet.exe"
 

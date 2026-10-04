@@ -6,6 +6,10 @@ from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 _SENSITIVE_KEYS = {
+    "sessdata",
+    "bili_jct",
+    "dedeuserid",
+    "dedeuserid__ckmd5",
     "authorization",
     "cookie",
     "set-cookie",

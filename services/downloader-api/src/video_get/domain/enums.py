@@ -7,6 +7,7 @@ class PlatformId(StrEnum):
     X = "x"
     INSTAGRAM = "instagram"
     THREADS = "threads"
+    BILIBILI = "bilibili"
 
 
 class PlatformStatus(StrEnum):

@@ -14,6 +14,8 @@
   },
   "options_page": "options.html",
   "permissions": ["activeTab", "storage", "nativeMessaging"],
+  "optional_permissions": ["cookies"],
+  "optional_host_permissions": ["https://*.bilibili.com/*"],
   "host_permissions": [
     "http://127.0.0.1/*",
     "http://localhost/*"

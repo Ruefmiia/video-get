@@ -1,10 +1,10 @@
 # Video Get
 
-Video Get 是一个本地优先的社交媒体内容获取工具，提供 Android App，以及由 Chrome/Edge 扩展、FastAPI 下载核心和 Windows 桌面辅助程序组成的桌面链路。
+Video Get 是一个本地优先的社交媒体内容获取工具，提供 Android App、Windows 独立桌面程序和可选的 Chrome/Edge 扩展，使用本机下载核心，不依赖云服务器。
 
 项目用于演示 URL 路由、媒体解析、后台任务、FFmpeg 后处理、浏览器扩展、Android 原生开发和本地服务集成。Android 版本在手机内完成分析与下载；桌面版本通过本机服务工作。项目目前不依赖云服务器。
 
-> 当前正式版本：Android `1.0.0`，默认发行 `arm64-v8a` APK。
+> 当前正式版本：Android `1.0.0`，默认发行 `arm64-v8a` APK。HarmonyOS 6 原生客户端仍在开发；直链下载与相册保存已通过真机测试，公开 X 帖子分析已接入、待验证。
 
 Android 开发版本 `1.1.0` 新增轻量下载来源记录与 CSV 导出，待签名 Release 真机验收。成功文件自动关联原帖，可打开来源、复制链接、按日期筛选和导出筛选结果；每页 30 组，支持确认后清理 30 天以前的记录（不删除媒体）。不保存媒体副本或缩略图。见[下载溯源开发文档](docs/11-android-source-history.md)。
 
@@ -13,11 +13,14 @@ Android 开发版本 `1.1.0` 新增轻量下载来源记录与 CSV 导出，待�
 | 客户端 | 状态 | YouTube | X | Instagram | Threads |
 |---|---|---|---|---|---|
 | Android App | `1.0.0` 正式内部版本 | 普通视频、短链接、Shorts | 单视频、多视频帖子 | Reel、单图、轮播、图文/视频混合帖子 | 公开帖子、分享链接、轮播、嵌套媒体 |
+| HarmonyOS 6 App | `0.1.0` 工程初版 | 链接识别 | 视频分析/下载待真机验证 | 链接识别 | 链接识别 |
 | Chrome/Edge 扩展 | `0.1.0` 开发版 | 暂不支持 | 通过本地 API | 通过本地 API | 仅识别并提示 |
-| Windows 桌面辅助程序 | `0.1.0` 开发版 | 暂不支持 | 管理桌面下载链路 | 管理桌面下载链路 | 暂不支持 |
+| Windows 独立桌面程序 | `0.2.1` 开发版 | 暂不支持 | 分析、选择视频/画质与下载 | 公开可访问视频 | 暂不支持 |
 | FastAPI 下载核心 | 核心功能完成 | 暂不支持 | 支持 | 支持 | 计划中 |
 
 真实平台会持续调整页面、接口和风控策略，因此“支持”不代表所有链接在所有网络环境下始终可用。
+
+2026-10-05 桌面更新：Windows `0.2.0` 可独立粘贴、分析与下载，支持最近任务、进度、取消/重试和打开文件，浏览器扩展保留。已接入 B站普通视频（BV/av）、b23.tv 分享链接及指定分 P。可直接点击桌面“B站登录”，登录成功后同步会话并返回；或继续通过扩展授权同步。画质以账号权限为准，服务凭证仅存内存，真实账号高清待人工验收。详见[独立桌面说明](docs/13-standalone-desktop.md)和[B站说明](docs/12-desktop-bilibili.md)。Android 与鸿蒙暂不新增 B站支持。
 
 ## Android 1.0.0
 
@@ -67,17 +70,19 @@ video-get-1.0.0-arm64-v8a.apk
 ## Windows 桌面链路
 
 ```text
-Chrome / Edge 扩展
+Windows 独立桌面 / Chrome、Edge 扩展（可选）
         │ 本机 HTTP + Bearer Token
         ▼
-FastAPI 下载核心 ── yt-dlp ── X / Instagram
+FastAPI 下载核心 ── yt-dlp ── X / Instagram / Bilibili
         │
         ├─ FFmpeg 合并与后处理
         └─ SQLite 任务与历史记录
 
-Windows 桌面辅助程序
+Windows 独立桌面程序
+        ├─ 链接分析、画质选择和任务管理
+        ├─ B站官方网页登录窗口
         ├─ 服务启停和单实例管理
-        ├─ 托盘与状态窗口
+        ├─ 托盘与下载窗口
         ├─ Native Messaging 配置
         └─ 安装包内置 FFmpeg/ffprobe
 ```
@@ -110,8 +115,9 @@ npm run build
 video-get/
 ├─ apps/
 │  ├─ android/                    # Android App、测试和发布脚本
+│  ├─ harmony/                    # HarmonyOS 6 ArkTS/ArkUI 原生工程（开发中）
 │  ├─ browser-extension/          # Chrome/Edge Manifest V3 扩展
-│  └─ desktop-companion/          # Windows 辅助程序和安装器
+│  └─ desktop-companion/          # Windows 独立桌面和安装器
 ├─ services/downloader-api/       # FastAPI、yt-dlp、FFmpeg、SQLite
 ├─ contracts/openapi/             # API 契约
 ├─ design-system/video-get/       # UI 设计规范
@@ -131,13 +137,14 @@ video-get/
 - 下载平台结构发生变化时，通常需要升级 App 或其内置解析组件。
 - Android 当前没有完整任务历史或多任务队列；开发版 1.1.0 已加入系统 SQLite 成功文件来源记录与 CSV 导出。
 - iOS 客户端尚未开发。
+- HarmonyOS 6 客户端已完成原生工程、首页、分享链接识别、HTTPS MP4/M4V 直链下载及相册保存；公开 X 帖子媒体分析与下载已构建、待真机验证，其他帖子平台尚未实现。
 
 ## 文档
 
 - [总体架构与约定](docs/00-architecture.md)
 - [FastAPI 下载核心](docs/01-core-api.md)
 - [Chrome/Edge 扩展](docs/02-browser-extension.md)
-- [Windows 桌面辅助程序](docs/03-desktop-companion.md)
+- [Windows 桌面程序](docs/03-desktop-companion.md)
 - [X 与 Instagram 桌面闭环](docs/04-x-instagram-e2e.md)
 - [Android App](docs/05-android-app.md)
 - [测试、发布与验收](docs/06-testing-and-release.md)
@@ -146,7 +153,10 @@ video-get/
 - [Android YouTube 方案](docs/09-android-youtube-plan.md)
 - [Android Instagram 登录方案](docs/10-android-instagram-login-plan.md)
 - [Android 下载溯源与 CSV 导出](docs/11-android-source-history.md)
+- [桌面 B站下载与登录](docs/12-desktop-bilibili.md)
+- [Windows 独立桌面版 0.2.1](docs/13-standalone-desktop.md)
 - [Android 1.0.0 发布说明](apps/android/release-notes/1.0.0.md)
+- [HarmonyOS 6 开发说明](apps/harmony/README.md)
 
 ## 免责声明
 

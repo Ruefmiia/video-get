@@ -36,5 +36,5 @@ def test_bundled_ffmpeg_is_skipped_outside_frozen_build(monkeypatch) -> None:
 def test_entrypoint_uses_package_safe_absolute_import() -> None:
     source = Path(__file__).parents[1] / "src" / "video_get_companion" / "__main__.py"
     content = source.read_text(encoding="utf-8")
-    assert "from video_get_companion.app import CompanionApp" in content
+    assert "from video_get_companion.desktop import DesktopApp" in content
     assert "from .app import CompanionApp" not in content

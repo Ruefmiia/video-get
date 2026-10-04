@@ -9,6 +9,8 @@ Video Get desktop companion includes open-source Python packages. Release builds
 | SQLAlchemy / Alembic | SQLite persistence and migrations | MIT |
 | pystray | Windows tray integration | LGPL-3.0 |
 | Pillow | Tray image generation | HPND |
+| pywebview / pythonnet / clr-loader | Isolated Bilibili login with Edge WebView2 | BSD-3-Clause / MIT |
+| Microsoft Edge WebView2 | System browser runtime, installed separately when missing | Microsoft terms |
 | PyInstaller | Windows executable packaging | GPL-2.0 with bootloader exception |
 
 The Windows installer redistributes the standalone `ffmpeg.exe` and `ffprobe.exe` programs from the gyan.dev FFmpeg 8.0.1 essentials build. That build is licensed under GNU GPL version 3. Its original `LICENSE` and `README.txt` files are installed in the `ffmpeg` directory alongside the programs. FFmpeg source and build information are available from the URLs in that README.

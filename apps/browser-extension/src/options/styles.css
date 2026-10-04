@@ -17,3 +17,8 @@ input { width: 100%; min-height: 46px; padding: 10px 12px; color: #32101a; backg
 aside { padding: 18px 20px; color: #713f12; background: #fefce8; border-left: 4px solid #ca8a04; line-height: 1.6; } aside p { margin: 6px 0 0; } code { padding: 2px 4px; background: #fef3c7; border-radius: 3px; }
 @media (max-width: 520px) { .options-shell { margin: 28px auto; } form { padding: 20px; } .token-field, .form-actions { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+.login-card { padding: 24px; background: white; border: 1px solid #f3c9d2; border-radius: 12px; }
+.login-card h2 { margin: 0 0 12px; font-size: 20px; }
+.login-card p { color: #69565c; line-height: 1.65; overflow-wrap: anywhere; }
+.login-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.login-actions button { padding: 10px 14px; }

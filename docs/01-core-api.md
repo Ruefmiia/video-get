@@ -4,6 +4,8 @@
 
 ## 目标
 
+2026-10-05：新增 B站 Provider、BV/av 与短链校验、分 P 保留及受本地 Token 保护的会话 GET/POST/DELETE 接口。凭证仅存内存，通过域名受限 CookieJar 使用；详见[桌面 B站文档](12-desktop-bilibili.md)。
+
 建立不依赖具体 UI 的本地下载核心，并完成可测试的 Provider、任务、FFmpeg 和 SQLite 边界。此阶段可以使用通用测试 URL验证框架，但不承诺任何平台端到端可用。
 
 ## 技术选型

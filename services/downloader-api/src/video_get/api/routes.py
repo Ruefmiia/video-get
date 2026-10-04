@@ -3,9 +3,11 @@ from __future__ import annotations
 from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import ValidationError
 
 from video_get import __version__
 from video_get.api.dependencies import require_local_token
+from video_get.domain.errors import AppError
 from video_get.domain.models import (
     AnalyzeRequest,
     DownloadJob,
@@ -17,9 +19,39 @@ from video_get.jobs.manager import JobManager
 from video_get.media.ffmpeg import FFmpegDiagnostics
 from video_get.persistence.database import JobRepository
 from video_get.providers.registry import ProviderRegistry
+from video_get.security.bilibili_session import BilibiliSession, BilibiliSessionRequest
 
 public_router = APIRouter()
 api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_local_token)])
+
+
+@api_router.get("/sessions/bilibili")
+def bilibili_session_status(request: Request) -> dict[str, bool]:
+    return cast(BilibiliSession, request.app.state.bilibili_session).status()
+
+
+@api_router.post("/sessions/bilibili")
+async def set_bilibili_session(request: Request) -> dict[str, bool]:
+    # Validate manually so FastAPI's default 422 response cannot echo secret input.
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > 24_000:
+            raise AppError("INVALID_SESSION", "Bilibili login data is too large.", 413)
+    try:
+        payload = BilibiliSessionRequest.model_validate_json(bytes(body))
+    except ValidationError:
+        raise AppError("INVALID_SESSION", "Invalid Bilibili login data.", 422) from None
+    session = cast(BilibiliSession, request.app.state.bilibili_session)
+    session.set(payload.cookies)
+    return session.status()
+
+
+@api_router.delete("/sessions/bilibili")
+def clear_bilibili_session(request: Request) -> dict[str, bool]:
+    session = cast(BilibiliSession, request.app.state.bilibili_session)
+    session.clear()
+    return session.status()
 
 
 @public_router.get("/health")

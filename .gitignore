@@ -25,3 +25,11 @@ captures/
 *.jks
 *.keystore
 apps/android/release-output/
+apps/harmony/.hvigor/
+apps/harmony/oh_modules/
+apps/harmony/**/build/
+apps/harmony/.preview/
+apps/harmony/*.p12
+apps/harmony/*.cer
+apps/harmony/*.p7b
+apps/harmony/AppGallery/

@@ -4,6 +4,7 @@ import os
 import sys
 import threading
 import tkinter as tk
+import webbrowser
 import winreg
 from pathlib import Path
 from tkinter import messagebox
@@ -16,14 +17,16 @@ from .single_instance import SingleInstance
 
 
 class CompanionApp:
-    def __init__(self, data_dir: Path | None = None) -> None:
+    def __init__(self, data_dir: Path | None = None, *, hidden: bool = False) -> None:
         self.data_dir = data_dir or Path(os.getenv("LOCALAPPDATA", ".")) / "VideoGet"
         self.controller = ServiceController(self.data_dir)
         self.instance = SingleInstance()
         self.root = tk.Tk()
+        if hidden:
+            self.root.withdraw()
         self.root.title("Video Get")
-        self.root.geometry("520x350")
-        self.root.minsize(480, 330)
+        self.root.geometry("520x420")
+        self.root.minsize(480, 400)
         self.root.protocol("WM_DELETE_WINDOW", self.hide_window)
         self.status_text = tk.StringVar(value="正在检查本地服务…")
         self.detail_text = tk.StringVar(value="127.0.0.1:17382")
@@ -93,6 +96,18 @@ class CompanionApp:
             activebackground="#f8fafc",
             cursor="hand2",
         ).pack(anchor="w", pady=(16, 0))
+        tk.Button(
+            frame,
+            text="打开 B站登录",
+            command=self.open_bilibili_login,
+            padx=12,
+            pady=8,
+            cursor="hand2",
+        ).pack(anchor="w", pady=(12, 0))
+
+    def open_bilibili_login(self) -> None:
+        webbrowser.open("https://www.bilibili.com/")
+        self.status_text.set("登录后请在同一浏览器的扩展设置中授权并同步 B站登录状态")
 
     def start_service(self) -> None:
         self.status_text.set("正在启动本地服务…")
@@ -203,7 +218,7 @@ class CompanionApp:
 
 
 def _tray_image() -> Image.Image:
-    image = Image.new("RGBA", (64, 64), "#be123c")
+    image = Image.new("RGBA", (64, 64), "#18181b")
     draw = ImageDraw.Draw(image)
     draw.line((32, 13, 32, 40), fill="white", width=7)
     draw.line((20, 30, 32, 42, 44, 30), fill="white", width=7, joint="curve")

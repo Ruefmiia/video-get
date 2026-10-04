@@ -189,6 +189,7 @@ export function Popup() {
         : state === 'error' && job && (job.state === 'failed' || job.state === 'cancelled') ? <button type="button" className="secondary" onClick={() => void retryDownload()}><RefreshIcon/>重新下载</button>
         : <button className="primary" type="submit" disabled={busy || !url}>{state === 'analyzing' ? '正在分析…' : '分析链接'}</button>}
     </form>
-    <footer>仅处理你主动提交的链接 · 不读取 Cookie 或浏览历史</footer>
+    {detected?.id === 'bilibili' && <p className="hint">高清画质可能需要登录。可在设置中登录 B站并授权同步，再重新分析链接。</p>}
+    <footer>仅处理主动提交的链接 · B站登录需单独授权 · 不读取浏览历史</footer>
   </main>
 }

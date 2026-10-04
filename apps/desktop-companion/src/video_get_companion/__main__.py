@@ -56,9 +56,26 @@ def main() -> int:
             for stream in streams:
                 stream.close()
         return 0
-    from video_get_companion.app import CompanionApp
+    if "--check-login-runtime" in sys.argv:
+        from video_get_companion.bilibili_login import check_runtime
 
-    return CompanionApp().run()
+        return check_runtime()
+    if "--login-bilibili" in sys.argv:
+        from video_get_companion.bilibili_login import run_login
+
+        data_dir = Path(
+            os.getenv("VIDEO_GET_DATA_DIR", str(Path(os.getenv("LOCALAPPDATA", ".")) / "VideoGet"))
+        )
+        return run_login(data_dir, int(os.getenv("VIDEO_GET_PORT", "17382")))
+    from video_get_companion.desktop import DesktopApp
+
+    if "--check-desktop-runtime" in sys.argv:
+        app = DesktopApp(hidden=True)
+        app.root.update_idletasks()
+        app.closed = True
+        app.root.destroy()
+        return 0
+    return DesktopApp().run()
 
 
 if __name__ == "__main__":

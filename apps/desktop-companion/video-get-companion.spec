@@ -15,11 +15,15 @@ a = Analysis(
         str(root / "apps" / "desktop-companion" / "src"),
         str(root / "services" / "downloader-api" / "src"),
     ],
-    datas=collect_data_files("video_get") + collect_data_files("yt_dlp"),
+    datas=collect_data_files("video_get") + collect_data_files("yt_dlp") + collect_data_files("webview"),
     hiddenimports=(
         sorted(collect_submodules("video_get"))
         + sorted(collect_submodules("yt_dlp.extractor"))
         + [
+            "webview.platforms.winforms",
+            "webview.platforms.edgechromium",
+            "clr",
+            "pythonnet",
             "uvicorn.logging",
             "uvicorn.loops.auto",
             "uvicorn.protocols.http.auto",

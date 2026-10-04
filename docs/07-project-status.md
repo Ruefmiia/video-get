@@ -1,14 +1,18 @@
 # 项目现状、客户端与路线图
 
-> 状态日期：2026-10-03。本文件是当前实现进度的统一入口；各阶段文档保留设计细节与验收标准。
+> 状态日期：2026-10-05。本文件是当前实现进度的统一入口；各阶段文档保留设计细节与验收标准。
 
-Android 正式版本仍为 `1.0.0`。开发版本 `1.1.0` 已加入轻量成功文件来源记录、查看原帖/打开文件与 CSV 单组/全部导出，待签名 Release 真机验收。使用系统 SQLite，无新增数据库依赖；详见[下载溯源文档](11-android-source-history.md)。
+桌面最新增量 `0.2.1`：下载列表显示百分比，选中任务显示已下载/总大小、速度和剩余时间；未知总大小不虚构百分比。扩展与其他客户端不变。
+
+Android 正式版本仍为 `1.0.0`。开发版本 `1.1.0` 已加入轻量成功文件来源记录、查看原帖/打开文件与 CSV 单组/全部导出，待签名 Release 真机验收。使用系统 SQLite，无新增数据库依赖；详见[下载溯源文档](11-android-source-history.md)。HarmonyOS 最近真机结果为 X 下载报 `112 / TLS/SSL error`，已分析到帖子，下载问题仍待解决。
 
 ## 1. 当前结论
 
+2026-10-05 桌面增量：B站 BV/av、分享短链与指定分 P 已接入，新增授权同步浏览器登录及清除入口。公开样例实际下载和合并通过；高清登录、真实分 P/短链及安装覆盖待人工验收。Android 与鸿蒙能力不变。详见[桌面 B站文档](12-desktop-bilibili.md)。
+
 Video Get 已形成两条可独立使用的本地下载链路，不需要云服务器：
 
-1. Windows 桌面链路：Chrome/Edge 扩展连接本机 FastAPI 下载核心，由 Windows 桌面辅助程序负责安装、启动、令牌发现和 FFmpeg 管理。
+1. Windows 桌面链路：桌面 `0.2.0` 可独立分析和下载，通过本机 FastAPI 核心工作；Chrome/Edge 扩展保留为可选快捷入口。新增 B站官方网页登录窗口，真实登录待验收，见[独立桌面说明](13-standalone-desktop.md)。
 2. Android 链路：原生 App 在手机内运行 yt-dlp/FFmpeg，并使用独立 Kotlin 解析器支持公开 Threads 视频。
 
 阶段 1 至阶段 4 的主要开发目标已经完成。阶段 5 Android App 已整理为首个正式内部版本 `1.0.0`；核心下载流程、易用性优化、专用签名与既有平台真机验证均已完成，新增 Instagram 图片/混合媒体能力进入正式版本回归矩阵。
@@ -17,25 +21,27 @@ Video Get 已形成两条可独立使用的本地下载链路，不需要云服�
 
 | 软件 | 目录 | 技术 | 当前状态 | 平台能力 |
 |---|---|---|---|---|
-| 本地下载 API | `services/downloader-api` | Python、FastAPI、yt-dlp、FFmpeg、SQLite | 已完成核心功能 | X、Instagram 可用；Threads 为计划状态 |
-| Chrome/Edge 扩展 | `apps/browser-extension` | React、TypeScript、Vite、Manifest V3 | 已完成 0.1.0 开发版 | 通过本地 API 下载 X/Instagram；Threads 只显示计划状态 |
-| Windows 桌面辅助程序 | `apps/desktop-companion` | Python、Tk、PyInstaller、Inno Setup | 已完成 0.1.0 开发版与真实安装回归 | 管理本地 API、令牌、托盘、开机启动、Native Messaging 和内置 FFmpeg |
+| 本地下载 API | `services/downloader-api` | Python、FastAPI、yt-dlp、FFmpeg、SQLite | 已完成核心功能 | X、Instagram 公开视频、B站普通投稿；Threads 为计划状态 |
+| Chrome/Edge 扩展 | `apps/browser-extension` | React、TypeScript、Vite、Manifest V3 | 已完成 0.1.0 开发版 | 通过本地 API 下载 X/Instagram/B站，可同步 B站会话；Threads 只显示计划状态 |
+| Windows 独立桌面程序 | `apps/desktop-companion` | Python、Tk、pywebview、PyInstaller、Inno Setup | 0.2.0 独立界面开发版，待真实登录/覆盖安装验收 | X、公开 Instagram 视频、B站分析下载，视频与画质选择、任务管理、官方 B站登录、托盘和可选扩展 |
 | Android App | `apps/android` | Kotlin、Jetpack Compose、WorkManager、MediaStore、youtubedl-android、系统 SQLite | 1.0.0 正式内部版；1.1.0 下载溯源开发版待真机验收 | YouTube、X、Instagram 图片/视频与公开 Threads；开发版新增来源记录及 CSV 导出 |
+| HarmonyOS 6 App | `apps/harmony` | ArkTS、ArkUI、Stage 模型 | 0.1.0 工程初版；API 22 命令行构建、调试签名、真机首页、分享识别、直链下载及相册保存验证通过 | X 帖子分析可用，旧下载接口对 X 报通用错误码 8；已切换新下载任务接口待复测；其他帖子平台未实现 |
 
 ### Windows 桌面链路
 
 ```text
-Chrome / Edge 扩展
+Windows 独立桌面 / Chrome、Edge 扩展（可选）
         │ 本机 HTTP + Bearer Token
         ▼
-FastAPI 下载核心 ── yt-dlp ── X / Instagram
+FastAPI 下载核心 ── yt-dlp ── X / Instagram / Bilibili
         │
         ├─ FFmpeg 合并与后处理
         └─ SQLite 任务与历史记录
 
-Windows 桌面辅助程序
+Windows 独立桌面程序
+        ├─ 链接分析、画质选择、下载与任务管理
         ├─ 启停与单实例管理
-        ├─ 托盘和状态窗口
+        ├─ 托盘和下载窗口
         ├─ Native Messaging 自动配置扩展
         └─ 安装包内置 FFmpeg/ffprobe
 ```
@@ -64,9 +70,10 @@ WorkManager 前台下载 ── FFmpeg ── MediaStore
 |---|---|---|---|
 | 1. 下载核心 | 已完成 | FastAPI、Provider、任务状态机、SQLite、FFmpeg、OpenAPI、令牌鉴权 | 持续跟随 yt-dlp 与平台变化 |
 | 2. 浏览器扩展 | 已完成 | Chrome/Edge 共用 MV3 源码、分析、格式选择、下载、进度、取消、重试 | 发布打包与商店审核准备 |
-| 3. Windows 辅助程序 | 已完成开发版 | PyInstaller EXE、托盘、Native Messaging、Inno Setup、内置 FFmpeg | 代码签名、升级机制、干净环境发布验收 |
+| 3. Windows 独立桌面 | 0.2.0 开发版 | 下载界面、B站网页登录、PyInstaller EXE、托盘、Native Messaging、Inno Setup、内置 FFmpeg | 真实账号高清登录、覆盖安装、高 DPI、代码签名、升级机制与干净环境发布验收 |
 | 4. X/Instagram 闭环 | 基本完成 | X/Instagram 规范化、格式令牌、多媒体选择、错误分类 | 扩大真实平台回归样本，重点验证 Instagram 网络环境 |
 | 5. Android App | 1.0.0 正式内部版本 | 本地分析下载、通知、MediaStore、X 多视频、Threads、YouTube 单视频、Instagram 登录与图片/混合媒体、黑白灰 UI、猫咪图标、ABI 拆包、专用签名、错误重试、任务恢复 | 扩充正式版本真机回归矩阵，继续提升 Threads/DASH 稳定性 |
+| 6. HarmonyOS 6 App | 工程初版 | 原生 Stage 工程、黑白首页、四平台链接识别；调试签名、真机首页、分享、直链下载及相册保存验证通过；X 帖子分析可用 | 复测新版下载任务的 X 单视频/多视频；增加解析回退并扩展其他平台 |
 
 ## 4. Android ABI 与包体积策略
 
@@ -111,7 +118,7 @@ video-get/
 │  │  ├─ src/options/            # 服务连接与令牌设置
 │  │  ├─ src/popup/              # 扩展主界面
 │  │  └─ src/shared/             # 平台识别、存储与共享类型
-│  └─ desktop-companion/          # Windows 桌面辅助程序
+│  └─ desktop-companion/          # Windows 独立桌面程序
 │     ├─ installer/               # Inno Setup 脚本
 │     ├─ native-host/             # Chrome/Edge Native Messaging 清单
 │     ├─ src/video_get_companion/ # 托盘、服务管理、Native Host

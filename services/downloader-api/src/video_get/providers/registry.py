@@ -9,6 +9,14 @@ from .url_router import UrlRouter
 
 CAPABILITIES = (
     PlatformCapability(
+        id=PlatformId.BILIBILI,
+        display_name="Bilibili",
+        status=PlatformStatus.AVAILABLE,
+        available=True,
+        url_patterns=["https://www.bilibili.com/video/*", "https://b23.tv/*"],
+        capabilities=["video", "video_variants", "authentication"],
+    ),
+    PlatformCapability(
         id=PlatformId.X,
         display_name="X",
         status=PlatformStatus.AVAILABLE,

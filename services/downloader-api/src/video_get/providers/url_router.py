@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from video_get.domain.enums import PlatformId
@@ -9,6 +10,10 @@ from video_get.domain.errors import invalid_url, unsupported_platform
 from .base import MatchResult
 
 _HOSTS: dict[str, PlatformId] = {
+    "bilibili.com": PlatformId.BILIBILI,
+    "www.bilibili.com": PlatformId.BILIBILI,
+    "m.bilibili.com": PlatformId.BILIBILI,
+    "b23.tv": PlatformId.BILIBILI,
     "x.com": PlatformId.X,
     "www.x.com": PlatformId.X,
     "twitter.com": PlatformId.X,
@@ -49,6 +54,27 @@ class UrlRouter:
             raise unsupported_platform()
         if not self._valid_path(platform, parsed.path):
             raise unsupported_platform()
+        if platform is PlatformId.BILIBILI:
+            try:
+                port = parsed.port
+            except ValueError as exc:
+                raise invalid_url() from exc
+            if parsed.username or parsed.password or port not in {None, 80, 443}:
+                raise invalid_url()
+            if host == "b23.tv":
+                if not re.fullmatch(r"/[A-Za-z0-9]+/?", parsed.path):
+                    raise unsupported_platform()
+                return MatchResult(platform, f"https://b23.tv{parsed.path.rstrip('/')}")
+            if not re.fullmatch(r"/video/(?:BV[A-Za-z0-9]{10}|av[0-9]+)/?", parsed.path):
+                raise unsupported_platform()
+            parts = [value for key, value in parse_qsl(parsed.query) if key == "p"]
+            if len(parts) > 1 or (parts and (not parts[0].isdigit() or int(parts[0]) < 1)):
+                raise invalid_url("Invalid Bilibili part number.")
+            query = urlencode({"p": str(int(parts[0]))}) if parts else ""
+            return MatchResult(
+                platform,
+                urlunsplit(("https", "www.bilibili.com", parsed.path.rstrip("/"), query, "")),
+            )
         query = urlencode(
             [(key, value) for key, value in parse_qsl(parsed.query) if key not in _TRACKING_KEYS]
         )
@@ -83,4 +109,6 @@ class UrlRouter:
             return (len(parts) >= 3 and parts[0].startswith("@") and parts[1] == "post") or (
                 len(parts) >= 2 and parts[0] == "share"
             )
+        if platform is PlatformId.BILIBILI:
+            return True  # Validated with the exact host/path pair in match().
         raise AssertionError(f"Unhandled platform: {platform}")  # pragma: no cover

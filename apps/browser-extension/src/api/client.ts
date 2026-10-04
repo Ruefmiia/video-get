@@ -1,4 +1,4 @@
-import type { DownloadJob, MediaInfo, ServiceVersion } from '../shared/types'
+import type { BilibiliCookie, DownloadJob, MediaInfo, ServiceVersion } from '../shared/types'
 
 export type ApiErrorKind = 'offline' | 'unauthorized' | 'incompatible' | 'planned' | 'authentication' | 'request'
 
@@ -34,6 +34,9 @@ export class VideoGetApi {
       throw new ApiError('offline', '无法连接本地服务。请启动 Video Get 服务后重试。')
     }
     if (!response.ok) {
+      if (response.status === 404 && path.startsWith('/api/v1/sessions/')) {
+        throw new ApiError('incompatible', '本地服务尚不支持 B站登录，请更新桌面程序。', 404)
+      }
       let code = ''
       let detail = ''
       try {
@@ -41,7 +44,9 @@ export class VideoGetApi {
         code = String(payload.error?.code ?? '')
         detail = String(payload.error?.message ?? payload.detail ?? '')
       } catch { /* non-JSON error */ }
-      if (code === 'AUTHENTICATION_REQUIRED') throw new ApiError('authentication', '该内容需要登录；当前版本不会读取浏览器 Cookie。', response.status)
+      if (code === 'AUTHENTICATION_REQUIRED') throw new ApiError('authentication', '该内容需要登录。B站可在设置中登录并同步登录状态；其他平台暂不支持桌面登录。', response.status)
+      if (code === 'FORMAT_NOT_AVAILABLE') throw new ApiError('request', '画质选择已过期或登录状态已改变，请重新分析链接。', response.status)
+      if (code === 'INVALID_SESSION') throw new ApiError('authentication', 'B站登录状态无效，请重新登录后同步。', response.status)
       if (code === 'SOURCE_FORBIDDEN') throw new ApiError('authentication', '源站拒绝访问该内容；请确认它是无需登录即可访问的公开内容。', response.status)
       if (code === 'RATE_LIMITED') throw new ApiError('request', '源站请求过于频繁，请稍后重试。', response.status)
       if (code === 'MEDIA_NOT_FOUND') throw new ApiError('request', '内容不存在、已删除或没有可下载的视频。', response.status)
@@ -69,6 +74,18 @@ export class VideoGetApi {
 
   analyze(url: string): Promise<MediaInfo> {
     return this.request('/api/v1/analyze', { method: 'POST', body: JSON.stringify({ url }) })
+  }
+
+  bilibiliSession(): Promise<{ configured: boolean }> {
+    return this.request('/api/v1/sessions/bilibili')
+  }
+
+  syncBilibiliSession(cookies: BilibiliCookie[]): Promise<{ configured: boolean }> {
+    return this.request('/api/v1/sessions/bilibili', { method: 'POST', body: JSON.stringify({ cookies }) })
+  }
+
+  clearBilibiliSession(): Promise<{ configured: boolean }> {
+    return this.request('/api/v1/sessions/bilibili', { method: 'DELETE' })
   }
 
   createDownload(url: string, assetId: string, formatId: string): Promise<DownloadJob> {

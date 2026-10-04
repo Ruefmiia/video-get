@@ -15,8 +15,10 @@ from yt_dlp.utils import DownloadError
 from video_get.domain.enums import PlatformId
 from video_get.domain.errors import AppError, download_failed, media_not_found
 from video_get.domain.models import Author, MediaAsset, MediaFormat, MediaInfo
+from video_get.security.bilibili_session import BilibiliCookie, BilibiliSession
 
 from .base import CancellationToken, MatchResult, ProgressCallback
+from .bilibili_short import resolve_short
 
 
 class DownloadCancelled(Exception):
@@ -31,11 +33,12 @@ class _FormatSelection:
     expression: str
     merge_output_format: str | None
     expires_at: float
+    session_revision: int | None = None
 
 
 class YtDlpProvider:
     id = "yt-dlp"
-    _platforms = {PlatformId.X, PlatformId.INSTAGRAM}
+    _platforms = {PlatformId.X, PlatformId.INSTAGRAM, PlatformId.BILIBILI}
 
     def __init__(
         self,
@@ -43,20 +46,32 @@ class YtDlpProvider:
         *,
         format_token_ttl_seconds: float = 15 * 60,
         max_format_tokens: int = 2048,
+        bilibili_session: BilibiliSession | None = None,
     ) -> None:
         self._format_tokens: OrderedDict[str, _FormatSelection] = OrderedDict()
         self._format_lock = threading.Lock()
         self._ffmpeg_location = ffmpeg_location
         self._format_token_ttl_seconds = format_token_ttl_seconds
         self._max_format_tokens = max_format_tokens
+        self._bilibili_session = bilibili_session or BilibiliSession()
 
     def supports(self, platform: PlatformId) -> bool:
         return platform in self._platforms
 
     def analyze(self, match: MatchResult) -> MediaInfo:
+        source_url = match.canonical_url
+        cookies: tuple[BilibiliCookie, ...] = ()
+        revision = None
+        if match.platform is PlatformId.BILIBILI:
+            match = resolve_short(match)
+            cookies, revision = self._bilibili_session.snapshot()
         options: dict[str, Any] = {"quiet": True, "no_warnings": True, "skip_download": True}
+        if match.platform is PlatformId.BILIBILI:
+            options["noplaylist"] = True  # Requested part only, never the whole collection.
         try:
             with yt_dlp.YoutubeDL(options) as ydl:
+                for cookie in cookies:
+                    ydl.cookiejar.set_cookie(cookie.to_cookie())
                 raw = ydl.extract_info(match.canonical_url, download=False)
         except DownloadError as exc:
             raise self._map_error(exc) from exc
@@ -64,14 +79,19 @@ class YtDlpProvider:
             raise media_not_found()
         entries = [entry for entry in raw.get("entries") or [] if entry]
         items = entries or [raw]
-        assets = [self._asset(item, index, match.canonical_url) for index, item in enumerate(items)]
+        assets = [
+            self._asset(item, index, match.canonical_url, revision)
+            for index, item in enumerate(items)
+        ]
         assets = [asset for asset in assets if asset.formats]
         if not assets:
             raise media_not_found()
         uploader = raw.get("uploader") or raw.get("channel")
         return MediaInfo(
-            source_url=match.canonical_url,
-            canonical_url=raw.get("webpage_url") or match.canonical_url,
+            source_url=source_url,
+            canonical_url=match.canonical_url
+            if match.platform is PlatformId.BILIBILI
+            else raw.get("webpage_url") or match.canonical_url,
             platform=match.platform,
             title=raw.get("title") or raw.get("description"),
             author=Author(
@@ -94,6 +114,11 @@ class YtDlpProvider:
         cancel: CancellationToken,
     ) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
+        cookies: tuple[BilibiliCookie, ...] = ()
+        revision = None
+        if match.platform is PlatformId.BILIBILI:
+            match = resolve_short(match)
+            cookies, revision = self._bilibili_session.snapshot()
 
         def hook(update: dict[str, Any]) -> None:
             if cancel.cancelled:
@@ -126,6 +151,10 @@ class YtDlpProvider:
         }
         if self._ffmpeg_location:
             options["ffmpeg_location"] = self._ffmpeg_location
+        if match.platform is PlatformId.BILIBILI:
+            options["noplaylist"] = True
+            options["format"] = "bestvideo+bestaudio/best"
+            options["merge_output_format"] = "mp4"
         if format_id:
             with self._format_lock:
                 self._prune_format_tokens(time.monotonic())
@@ -135,6 +164,10 @@ class YtDlpProvider:
                     "FORMAT_NOT_AVAILABLE",
                     "The selected format is unavailable or has expired.",
                     422,
+                )
+            if selection.session_revision != revision:
+                raise AppError(
+                    "FORMAT_NOT_AVAILABLE", "Login state changed; analyze the link again.", 422
                 )
             if asset_ids and asset_ids != [selection.asset_id]:
                 raise AppError(
@@ -149,6 +182,8 @@ class YtDlpProvider:
         try:
             before = set(output_dir.iterdir())
             with yt_dlp.YoutubeDL(options) as ydl:
+                for cookie in cookies:
+                    ydl.cookiejar.set_cookie(cookie.to_cookie())
                 result = ydl.extract_info(match.canonical_url, download=True)
                 prepared = Path(ydl.prepare_filename(result)) if result else None
             if prepared and prepared.exists():
@@ -164,7 +199,13 @@ class YtDlpProvider:
         except DownloadError as exc:
             raise self._map_error(exc) from exc
 
-    def _asset(self, raw: dict[str, Any], index: int, canonical_url: str) -> MediaAsset:
+    def _asset(
+        self,
+        raw: dict[str, Any],
+        index: int,
+        canonical_url: str,
+        session_revision: int | None = None,
+    ) -> MediaAsset:
         formats: list[MediaFormat] = []
         for item in raw.get("formats") or []:
             vcodec = item.get("vcodec")
@@ -178,6 +219,8 @@ class YtDlpProvider:
                 continue
             raw_asset_id = str(raw.get("id") or index)
             token_source = f"{canonical_url}\0{raw_asset_id}\0{raw_format_id}"
+            if session_revision is not None:
+                token_source += f"\0session-{session_revision}"
             format_id = f"fmt_{hashlib.sha256(token_source.encode()).hexdigest()[:24]}"
             expression = raw_format_id
             merge_output_format = None
@@ -185,6 +228,9 @@ class YtDlpProvider:
                 expression = (
                     f"{raw_format_id}+bestaudio[ext=m4a]/{raw_format_id}+bestaudio/{raw_format_id}"
                 )
+                if session_revision is not None:
+                    # Do not silently produce a muted video when Bilibili audio is unavailable.
+                    expression = f"{raw_format_id}+bestaudio[ext=m4a]/{raw_format_id}+bestaudio"
                 if item.get("ext") == "mp4":
                     merge_output_format = "mp4"
             asset_id = self._asset_id(raw, index)
@@ -198,6 +244,7 @@ class YtDlpProvider:
                     expression=expression,
                     merge_output_format=merge_output_format,
                     expires_at=now + self._format_token_ttl_seconds,
+                    session_revision=session_revision,
                 )
                 self._format_tokens.move_to_end(format_id)
                 while len(self._format_tokens) > self._max_format_tokens:
@@ -205,6 +252,8 @@ class YtDlpProvider:
             height = _int_or_none(item.get("height"))
             ext = _string_or_none(item.get("ext"))
             label = f"{height}p {ext.upper() if ext else ''}".strip() if height else ext or "Video"
+            if session_revision is not None:
+                label += f" · {item.get('format_note') or vcodec or 'Video'}"
             formats.append(
                 MediaFormat(
                     id=format_id,
@@ -227,7 +276,9 @@ class YtDlpProvider:
             id=self._asset_id(raw, index),
             type="video",
             thumbnail_url=_string_or_none(raw.get("thumbnail")),
-            formats=formats,
+            formats=sorted(formats, key=lambda f: (f.height or 0, f.fps or 0), reverse=True)
+            if session_revision is not None
+            else formats,
         )
 
     @staticmethod

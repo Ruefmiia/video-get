@@ -30,7 +30,7 @@ describe('VideoGetApi', () => {
   })
 
   it.each([
-    ['AUTHENTICATION_REQUIRED', 401, 'authentication', /不会读取浏览器 Cookie/],
+    ['AUTHENTICATION_REQUIRED', 401, 'authentication', /同步登录状态/],
     ['SOURCE_FORBIDDEN', 403, 'authentication', /公开内容/],
     ['RATE_LIMITED', 429, 'request', /稍后重试/],
     ['MEDIA_NOT_FOUND', 404, 'request', /已删除/],
